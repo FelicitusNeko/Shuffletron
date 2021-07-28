@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -23,6 +24,13 @@ type Article struct {
 // that we can then populate in our main function
 // to simulate a database
 var Articles []Article
+
+// We'll need to define an Upgrader
+// this will require a Read and Write buffer size
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
 func initDb() {
 	db, err := sql.Open("sqlite3", "./shuffletron.sqlite3")
@@ -97,7 +105,6 @@ func deleteArticle(w http.ResponseWriter, r *http.Request) {
 			Articles = append(Articles[:index], Articles[index+1:]...)
 		}
 	}
-
 }
 
 func updateArticle(w http.ResponseWriter, r *http.Request) {
@@ -117,9 +124,51 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func wsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// TODO: look more into CORS
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// helpful log statement to show connections
+	log.Println("Client Connected")
+	err = ws.WriteMessage(1, []byte("Hi Client!"))
+	if err != nil {
+		log.Println(err)
+	}
+
+	reader(ws)
+}
+
+// define a reader which will listen for
+// new messages being sent to our WebSocket
+// endpoint
+func reader(conn *websocket.Conn) {
+	for {
+		// read in a message
+		messageType, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		// print out that message for clarity
+		fmt.Println(string(p))
+
+		if err := conn.WriteMessage(messageType, p); err != nil {
+			log.Println(err)
+			return
+		}
+
+	}
+}
+
 func handleReqs() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.Handle("/", http.FileServer(http.Dir("./serve")))
+	myRouter.HandleFunc("/ws", wsEndpoint)
 	myRouter.HandleFunc("/articles", createNewArticle).Methods("POST")
 	myRouter.HandleFunc("/articles", returnAllArticles)
 	myRouter.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
