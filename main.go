@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
@@ -177,6 +178,26 @@ func handleReqs() {
 	log.Fatal(http.ListenAndServe(":8081", myRouter))
 }
 
+func twitchHandler() {
+	client := twitch.NewAnonymousClient()
+
+	//defer client.Disconnect()
+
+	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+		fmt.Printf("[%s] %s: %s\n", message.Channel, message.User.DisplayName, message.Message)
+		if message.Bits > 0 {
+			fmt.Printf("%s has given %d bit(s) to %s", message.User.DisplayName, message.Bits, message.Channel)
+		}
+	})
+
+	client.Join("kewliomzx")
+
+	err := client.Connect()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	fmt.Println("Starting server")
 
@@ -186,6 +207,6 @@ func main() {
 	}
 
 	//initDb()
+	go twitchHandler()
 	handleReqs()
-
 }
