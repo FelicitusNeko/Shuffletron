@@ -7,12 +7,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+const port = 42069
 
 type Article struct {
 	Id      string `json:"id"`
@@ -128,6 +132,7 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	// TODO: look more into CORS
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	log.Println("WS connection request")
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -167,15 +172,23 @@ func reader(conn *websocket.Conn) {
 }
 
 func handleReqs() {
-	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.Handle("/", http.FileServer(http.Dir("./serve")))
-	myRouter.HandleFunc("/ws", wsEndpoint)
-	myRouter.HandleFunc("/articles", createNewArticle).Methods("POST")
-	myRouter.HandleFunc("/articles", returnAllArticles)
-	myRouter.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
-	myRouter.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
-	myRouter.HandleFunc("/articles/{id}", returnSingleArticle)
-	log.Fatal(http.ListenAndServe(":8081", myRouter))
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/ws", wsEndpoint)
+	router.HandleFunc("/articles", createNewArticle).Methods("POST")
+	router.HandleFunc("/articles", returnAllArticles)
+	router.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
+	router.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
+	router.HandleFunc("/articles/{id}", returnSingleArticle)
+	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.RequestURI)
+		if _, err := os.Stat("./build/" + r.URL.Path[1:]); err == nil {
+			http.ServeFile(w, r, "./build/"+r.URL.Path[1:])
+		} else {
+			http.ServeFile(w, r, "./build/index.html")
+		}
+	})
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
+
 }
 
 func twitchHandler() {
