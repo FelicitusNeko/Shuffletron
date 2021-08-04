@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/gorilla/mux"
@@ -17,6 +18,10 @@ import (
 )
 
 const port = 42069
+
+type ChannelTray struct {
+	twitchmsg chan twitch.PrivateMessage
+}
 
 type Article struct {
 	Id      string `json:"id"`
@@ -129,7 +134,7 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func wsEndpoint(w http.ResponseWriter, r *http.Request) {
+func wsEndpoint(w http.ResponseWriter, r *http.Request, twitchchat chan twitch.PrivateMessage) {
 	// TODO: look more into CORS
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	log.Println("WS connection request")
@@ -141,49 +146,68 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	// helpful log statement to show connections
 	log.Println("Client Connected")
-	err = ws.WriteMessage(1, []byte("Hi Client!"))
+	/*err = ws.WriteMessage(websocket.TextMessage, []byte("Hi Client!"))
 	if err != nil {
 		log.Println(err)
-	}
+	}*/
 
-	reader(ws)
+	go wsWriter(ws, twitchchat)
+	wsReader(ws)
 }
 
-// define a reader which will listen for
+func wsWriter(conn *websocket.Conn, twitchchat chan twitch.PrivateMessage) {
+	for {
+		msg := <-twitchchat
+
+		if err := conn.WriteMessage(
+			websocket.TextMessage, []byte(msg.User.DisplayName+": "+msg.Message),
+		); err != nil {
+			log.Println(err)
+			break
+		}
+	}
+}
+
+// define a wsReader which will listen for
 // new messages being sent to our WebSocket
 // endpoint
-func reader(conn *websocket.Conn) {
+func wsReader(conn *websocket.Conn) {
 	for {
 		// read in a message
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
-			return
+			break
 		}
 		// print out that message for clarity
 		fmt.Println(string(p))
 
 		if err := conn.WriteMessage(messageType, p); err != nil {
 			log.Println(err)
-			return
+			break
 		}
 
 	}
 }
 
-func handleReqs() {
+func handleReqs(twitchchat chan twitch.PrivateMessage) {
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/ws", wsEndpoint)
+	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		wsEndpoint(w, r, twitchchat)
+	})
+
 	router.HandleFunc("/articles", createNewArticle).Methods("POST")
 	router.HandleFunc("/articles", returnAllArticles)
 	router.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
 	router.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
 	router.HandleFunc("/articles/{id}", returnSingleArticle)
+
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.RequestURI)
 		if _, err := os.Stat("./build/" + r.URL.Path[1:]); err == nil {
+			fmt.Println("sending " + r.RequestURI)
 			http.ServeFile(w, r, "./build/"+r.URL.Path[1:])
 		} else {
+			fmt.Println("req not found " + r.RequestURI)
 			http.ServeFile(w, r, "./build/index.html")
 		}
 	})
@@ -191,28 +215,35 @@ func handleReqs() {
 
 }
 
-func twitchHandler() {
+func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 	client := twitch.NewAnonymousClient()
 
 	//defer client.Disconnect()
 
-	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		fmt.Printf("[%s] %s: %s\n", message.Channel, message.User.DisplayName, message.Message)
-		if message.Bits > 0 {
-			fmt.Printf("%s has given %d bit(s) to %s", message.User.DisplayName, message.Bits, message.Channel)
+	client.OnPrivateMessage(func(msg twitch.PrivateMessage) {
+		fmt.Printf("[%s] %s: %s\n", msg.Channel, msg.User.DisplayName, msg.Message)
+		if msg.Bits > 0 {
+			fmt.Printf("%s has given %d bit(s) to %s", msg.User.DisplayName, msg.Bits, msg.Channel)
 		}
+		twitchchat <- msg
 	})
 
 	client.Join("kewliomzx")
 
-	err := client.Connect()
-	if err != nil {
-		panic(err)
+	for {
+		err := client.Connect()
+		if err == nil {
+			break
+		} else {
+			fmt.Println("Disconnected from Twitch: " + err.Error())
+			time.Sleep(5000)
+		}
 	}
 }
 
 func main() {
 	fmt.Println("Starting server")
+	twitchchat := make(chan twitch.PrivateMessage)
 
 	Articles = []Article{
 		{Id: "1", Title: "Hello", Desc: "Article Description", Content: "Article Content"},
@@ -220,6 +251,6 @@ func main() {
 	}
 
 	//initDb()
-	go twitchHandler()
-	handleReqs()
+	go twitchHandler(twitchchat)
+	handleReqs(twitchchat)
 }
