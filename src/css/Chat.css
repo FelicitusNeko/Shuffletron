@@ -1,0 +1,8 @@
+#chat p {
+  margin: 3px;
+}
+
+#chat .chatTime {
+  font-size: 50%;
+  margin: .5em;
+}
