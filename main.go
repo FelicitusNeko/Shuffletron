@@ -30,6 +30,15 @@ type Article struct {
 	Content string `json:"content"`
 }
 
+type TwitchWSMsg struct {
+	Id          string `json:"id"`
+	DisplayName string `json:"displayName"`
+	DisplayCol  string `json:"displayCol"`
+	Channel     string `json:"channel"`
+	Message     string `json:"msg"`
+	Time        int64  `json:"time"`
+}
+
 // let's declare a global Articles array
 // that we can then populate in our main function
 // to simulate a database
@@ -158,12 +167,27 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request, twitchchat chan twitch.P
 func wsWriter(conn *websocket.Conn, twitchchat chan twitch.PrivateMessage) {
 	for {
 		msg := <-twitchchat
+		twitchchat <- msg
+
+		outMsg, err := json.Marshal(TwitchWSMsg{
+			Id:          msg.ID,
+			DisplayName: msg.User.DisplayName,
+			DisplayCol:  msg.User.Color,
+			Channel:     msg.Channel,
+			Time:        msg.Time.Unix(),
+			Message:     msg.Message,
+		})
+		if err != nil {
+			log.Println("Error in marshall op:", err)
+		}
 
 		if err := conn.WriteMessage(
-			websocket.TextMessage, []byte(msg.User.DisplayName+": "+msg.Message),
+			websocket.TextMessage, []byte(outMsg),
 		); err != nil {
-			log.Println(err)
+			log.Println("Error in WS write op:", err)
 			break
+		} else {
+			time.Sleep(1)
 		}
 	}
 }
@@ -183,7 +207,7 @@ func wsReader(conn *websocket.Conn) {
 		fmt.Println(string(p))
 
 		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println(err)
+			log.Println("Error in WS read op:", err)
 			break
 		}
 
@@ -226,6 +250,8 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 			fmt.Printf("%s has given %d bit(s) to %s", msg.User.DisplayName, msg.Bits, msg.Channel)
 		}
 		twitchchat <- msg
+		time.Sleep(1)
+		<-twitchchat
 	})
 
 	client.Join("kewliomzx")
