@@ -28,8 +28,12 @@ var wsWriteMutex = &sync.Mutex{}
 type TwitchWS struct {
 	msg  chan twitch.PrivateMessage
 	conn *websocket.Conn
+	id   int
 	open bool
 }
+
+var openWS []TwitchWS
+var wsId int
 
 func (ws TwitchWS) wsWriter() {
 	for {
@@ -75,12 +79,10 @@ func (ws TwitchWS) wsReader() {
 		fmt.Println("Now delisting this WS")
 		delisted := false
 		for x, delWS := range openWS {
-			if !delWS.open {
+			if delWS.id == ws.id {
 				fmt.Println("Found WS to delist")
 				delisted = true
 				openWS = append(openWS[:x], openWS[x+1:]...)
-			} else {
-				fmt.Println("Open WS stays open")
 			}
 		}
 		if !delisted {
@@ -113,8 +115,6 @@ func (ws TwitchWS) wsReader() {
 
 	}
 }
-
-var openWS []TwitchWS
 
 // -------------=========== MAIN CODE
 
@@ -251,7 +251,8 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	// helpful log statement to show connections
 	log.Println("Client Connected")
 
-	newWS := TwitchWS{nil, ws, true}
+	newWS := TwitchWS{nil, ws, wsId, true}
+	wsId++
 	go newWS.wsReader()
 	wsListMutex.Lock()
 	openWS = append(openWS, newWS)
