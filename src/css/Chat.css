@@ -6,3 +6,11 @@
   font-size: 75%;
   margin: .5em;
 }
+
+#chat .channelName {
+  display: none;
+}
+
+#chat.multichat .channelname {
+  display: inline;
+}

@@ -25,6 +25,8 @@ const ChatItem: React.FC<ChatItemProps> = ({ displayName, displayCol, time, chan
   };
   if (displayCol) nameStyle.color = displayCol;
 
+  //https://static-cdn.jtvnw.net/emoticons/v2/{emote id}/default/dark/{1-3}.0
+
   let chatTime = time ? <span className='chatTime'>
     {`${time.toLocaleString(DateTime.TIME_24_SIMPLE)}`}
   </span> : null;
@@ -86,9 +88,8 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
       key={inMsg.id}
       displayName={inMsg.displayName}
       displayCol={inMsg.displayCol}
-      //time={new Date(inMsg.time * 1000)}
-      channel={inMsg.channel}
       time={DateTime.fromMillis(inMsg.time * 1000).toLocal()}
+      channel={inMsg.channel}
     >
       {inMsg.msg}
     </ChatItem>;
@@ -108,7 +109,7 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
     if (!this.state) return null;
     const { msgList } = this.state;
 
-    return <div id='chat'>
+    return <div id='chat' className='multichat'>
       <ChatItem>Hello World! This is the chat overlay.</ChatItem>
       {msgList}
     </div>
