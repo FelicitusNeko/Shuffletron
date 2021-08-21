@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gempir/go-twitch-irc/v2"
@@ -19,9 +20,103 @@ import (
 
 const port = 42069
 
-type ChannelTray struct {
-	twitchmsg chan twitch.PrivateMessage
+var wsListMutex = &sync.Mutex{}
+var wsWriteMutex = &sync.Mutex{}
+
+// -------------============== TWITCHWS CLASS
+
+type TwitchWS struct {
+	msg  chan twitch.PrivateMessage
+	conn *websocket.Conn
+	open bool
 }
+
+func (ws TwitchWS) wsWriter() {
+	for {
+		msg := <-ws.msg
+		if !ws.open {
+			fmt.Println("Stopping wsWriter")
+			return
+		}
+
+		outMsg, err := json.Marshal(TwitchWSMsg{
+			Id:          msg.ID,
+			DisplayName: msg.User.DisplayName,
+			DisplayCol:  msg.User.Color,
+			Channel:     msg.Channel,
+			Time:        msg.Time.Unix(),
+			Message:     msg.Message,
+		})
+		if err != nil {
+			log.Println("Error in marshall op:", err)
+		}
+
+		wsWriteMutex.Lock()
+		if err := ws.conn.WriteMessage(
+			websocket.TextMessage, []byte(outMsg),
+		); err != nil {
+			log.Println("Error in WS write op:", err)
+			wsWriteMutex.Unlock()
+			break
+		} else {
+			wsWriteMutex.Unlock()
+		}
+	}
+}
+
+// define a wsReader which will listen for
+// new messages being sent to our WebSocket
+// endpoint
+func (ws TwitchWS) wsReader() {
+	defer func() {
+		fmt.Println("Attempting to terminate WS goroutines")
+		ws.open = false
+		wsListMutex.Lock()
+		fmt.Println("Now delisting this WS")
+		delisted := false
+		for x, delWS := range openWS {
+			if !delWS.open {
+				fmt.Println("Found WS to delist")
+				delisted = true
+				openWS = append(openWS[:x], openWS[x+1:]...)
+			} else {
+				fmt.Println("Open WS stays open")
+			}
+		}
+		if !delisted {
+			fmt.Println("Didn't find WS to delist")
+		}
+		wsListMutex.Unlock()
+		if ws.msg != nil {
+			ws.msg <- twitch.PrivateMessage{}
+		}
+	}()
+
+	for {
+		// read in a message
+		messageType, p, err := ws.conn.ReadMessage()
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		// print out that message for clarity
+		fmt.Println(string(p))
+
+		wsWriteMutex.Lock()
+		if err := ws.conn.WriteMessage(messageType, p); err != nil {
+			log.Println("Error in WS read op:", err)
+			wsWriteMutex.Unlock()
+			break
+		} else {
+			wsWriteMutex.Unlock()
+		}
+
+	}
+}
+
+var openWS []TwitchWS
+
+// -------------=========== MAIN CODE
 
 type Article struct {
 	Id      string `json:"id"`
@@ -143,7 +238,7 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func wsEndpoint(w http.ResponseWriter, r *http.Request, twitchchat chan twitch.PrivateMessage) {
+func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	// TODO: look more into CORS
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	log.Println("WS connection request")
@@ -155,70 +250,17 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request, twitchchat chan twitch.P
 
 	// helpful log statement to show connections
 	log.Println("Client Connected")
-	/*err = ws.WriteMessage(websocket.TextMessage, []byte("Hi Client!"))
-	if err != nil {
-		log.Println(err)
-	}*/
 
-	go wsWriter(ws, twitchchat)
-	wsReader(ws)
+	newWS := TwitchWS{nil, ws, true}
+	go newWS.wsReader()
+	wsListMutex.Lock()
+	openWS = append(openWS, newWS)
+	wsListMutex.Unlock()
 }
 
-func wsWriter(conn *websocket.Conn, twitchchat chan twitch.PrivateMessage) {
-	for {
-		msg := <-twitchchat
-		twitchchat <- msg
-
-		outMsg, err := json.Marshal(TwitchWSMsg{
-			Id:          msg.ID,
-			DisplayName: msg.User.DisplayName,
-			DisplayCol:  msg.User.Color,
-			Channel:     msg.Channel,
-			Time:        msg.Time.Unix(),
-			Message:     msg.Message,
-		})
-		if err != nil {
-			log.Println("Error in marshall op:", err)
-		}
-
-		if err := conn.WriteMessage(
-			websocket.TextMessage, []byte(outMsg),
-		); err != nil {
-			log.Println("Error in WS write op:", err)
-			break
-		} else {
-			time.Sleep(1)
-		}
-	}
-}
-
-// define a wsReader which will listen for
-// new messages being sent to our WebSocket
-// endpoint
-func wsReader(conn *websocket.Conn) {
-	for {
-		// read in a message
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			break
-		}
-		// print out that message for clarity
-		fmt.Println(string(p))
-
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println("Error in WS read op:", err)
-			break
-		}
-
-	}
-}
-
-func handleReqs(twitchchat chan twitch.PrivateMessage) {
+func handleReqs( /*twitchchat chan twitch.PrivateMessage*/ ) {
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		wsEndpoint(w, r, twitchchat)
-	})
+	router.HandleFunc("/ws", wsEndpoint)
 
 	router.HandleFunc("/articles", createNewArticle).Methods("POST")
 	router.HandleFunc("/articles", returnAllArticles)
@@ -236,7 +278,6 @@ func handleReqs(twitchchat chan twitch.PrivateMessage) {
 		}
 	})
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
-
 }
 
 func twitchHandler(twitchchat chan twitch.PrivateMessage) {
@@ -250,8 +291,6 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 			fmt.Printf("%s has given %d bit(s) to %s", msg.User.DisplayName, msg.Bits, msg.Channel)
 		}
 		twitchchat <- msg
-		time.Sleep(1)
-		<-twitchchat
 	})
 
 	client.Join("kewliomzx")
@@ -267,6 +306,27 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 	}
 }
 
+func twitchTransmitter(msg chan twitch.PrivateMessage) {
+	for {
+		msgIn := <-msg
+		sentTo := 0
+		wsListMutex.Lock()
+		for _, ws := range openWS {
+			if !ws.open {
+				continue
+			}
+			if ws.msg == nil {
+				ws.msg = make(chan twitch.PrivateMessage)
+				go ws.wsWriter()
+			}
+			ws.msg <- msgIn
+			sentTo++
+		}
+		fmt.Printf("Sent to %d/%d client(s)\n", sentTo, len(openWS))
+		wsListMutex.Unlock()
+	}
+}
+
 func main() {
 	fmt.Println("Starting server")
 	twitchchat := make(chan twitch.PrivateMessage)
@@ -278,5 +338,6 @@ func main() {
 
 	//initDb()
 	go twitchHandler(twitchchat)
-	handleReqs(twitchchat)
+	go twitchTransmitter(twitchchat)
+	handleReqs()
 }
