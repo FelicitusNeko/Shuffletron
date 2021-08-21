@@ -2389,6 +2389,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/luxon@npm:^2":
+  version: 2.0.0
+  resolution: "@types/luxon@npm:2.0.0"
+  checksum: 8b850e4440db1cbf1ab050d02540fc2a9f6a1c927233d153a8f569bc35a6c7cf8fb3c21d0c400a4f1b923b2ad433eef09c9acb603a1dbe88c7c428eb5c52ae88
+  languageName: node
+  linkType: hard
+
 "@types/minimatch@npm:*":
   version: 3.0.3
   resolution: "@types/minimatch@npm:3.0.3"
@@ -9448,6 +9455,13 @@ fsevents@^1.2.7:
   languageName: node
   linkType: hard
 
+"luxon@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "luxon@npm:2.0.2"
+  checksum: eb2e366cf41a129704ae3213e0aea3e1504390af2a84322a5bbb6a22c92d96c7cb70e58b941a109c5e1bfbed51784d08130278feeee6cdf169940af90a68ded5
+  languageName: node
+  linkType: hard
+
 "lz-string@npm:^1.4.4":
   version: 1.4.4
   resolution: "lz-string@npm:1.4.4"
@@ -13290,10 +13304,12 @@ resolve@1.18.1:
     "@testing-library/react": ^11.1.0
     "@testing-library/user-event": ^12.1.10
     "@types/jest": ^26.0.15
+    "@types/luxon": ^2
     "@types/node": ^12.0.0
     "@types/react": ^17.0.0
     "@types/react-dom": ^17.0.0
     "@types/react-router-dom": ^5
+    luxon: ^2.0.2
     react: ^17.0.2
     react-dom: ^17.0.2
     react-router-dom: ^5.2.0
