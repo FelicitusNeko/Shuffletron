@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import Sockette from 'sockette';
 import '../../css/Chat.css';
+import { DateTime } from 'luxon';
 
 interface TwitchWSMsg {
   id: string;
@@ -15,20 +16,29 @@ interface ChatItemProps {
   displayName?: string;
   displayCol?: string;
   channel?: string;
-  time?: Date;
+  time?: DateTime;
   children?: ReactNode
 }
-const ChatItem: React.FC<ChatItemProps> = ({ displayName, displayCol, time, children }) => {
+const ChatItem: React.FC<ChatItemProps> = ({ displayName, displayCol, time, channel, children }) => {
   const nameStyle: React.CSSProperties = {
     fontWeight: 'bold'
   };
   if (displayCol) nameStyle.color = displayCol;
 
+  let chatTime = time ? <span className='chatTime'>
+    {`${time.toLocaleString(DateTime.TIME_24_SIMPLE)}`}
+  </span> : null;
+  let chatChannel = channel ? <span className='channelName'>
+    [{channel.slice(0, 3).toUpperCase()}]&nbsp;
+  </span> : null;
+  let chatUser = displayName ? <span className='chatName' style={nameStyle}>
+    {displayName}:&nbsp;
+  </span> : null;
+
   return <p>
-    <span className='chatTime'>{time ? `${time.getHours()}:${time.getMinutes()}` : ''}</span>
-    <span className='chatName' style={nameStyle}>
-      {displayName ? `${displayName}: ` : ''}
-    </span>
+    {chatTime}
+    {chatChannel}
+    {chatUser}
     {children || ''}
   </p>
 }
@@ -76,7 +86,9 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
       key={inMsg.id}
       displayName={inMsg.displayName}
       displayCol={inMsg.displayCol}
-      time={new Date(inMsg.time)}
+      //time={new Date(inMsg.time * 1000)}
+      channel={inMsg.channel}
+      time={DateTime.fromMillis(inMsg.time * 1000).toLocal()}
     >
       {inMsg.msg}
     </ChatItem>;
