@@ -1,14 +1,22 @@
 #chat p {
   margin: 3px;
+  word-wrap: break-word;
 }
 
 #chat .chatTime {
-  font-size: 75%;
-  margin: .5em;
+  font-size: 60%;
+  margin: .2em;
 }
 
 #chat .channelName {
   display: none;
+  font-family: 'Bahnschrift';
+  font-weight: lighter;
+  font-stretch: extra-condensed;
+}
+
+#chat img.chatEmote {
+  max-height: 1em;
 }
 
 #chat.multichat .channelname {

@@ -43,6 +43,14 @@ func (ws TwitchWS) wsWriter() {
 			return
 		}
 
+		var outEmotes []TwitchWSMsgEmote
+		for _, inEmote := range msg.Emotes {
+			outEmotes = append(outEmotes, TwitchWSMsgEmote{
+				Name: inEmote.Name,
+				Id:   inEmote.ID,
+			})
+		}
+
 		outMsg, err := json.Marshal(TwitchWSMsg{
 			Id:          msg.ID,
 			DisplayName: msg.User.DisplayName,
@@ -50,6 +58,7 @@ func (ws TwitchWS) wsWriter() {
 			Channel:     msg.Channel,
 			Time:        msg.Time.Unix(),
 			Message:     msg.Message,
+			Emotes:      outEmotes,
 		})
 		if err != nil {
 			log.Println("Error in marshall op:", err)
@@ -126,12 +135,18 @@ type Article struct {
 }
 
 type TwitchWSMsg struct {
-	Id          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	DisplayCol  string `json:"displayCol"`
-	Channel     string `json:"channel"`
-	Message     string `json:"msg"`
-	Time        int64  `json:"time"`
+	Id          string             `json:"id"`
+	DisplayName string             `json:"displayName"`
+	DisplayCol  string             `json:"displayCol"`
+	Channel     string             `json:"channel"`
+	Message     string             `json:"msg"`
+	Time        int64              `json:"time"`
+	Emotes      []TwitchWSMsgEmote `json:"emotes"`
+}
+
+type TwitchWSMsgEmote struct {
+	Name string `json:"name"`
+	Id   string `json:"id"`
 }
 
 // let's declare a global Articles array

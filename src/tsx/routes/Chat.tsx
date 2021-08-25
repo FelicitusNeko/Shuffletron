@@ -3,6 +3,8 @@ import Sockette from 'sockette';
 import '../../css/Chat.css';
 import { DateTime } from 'luxon';
 
+const deleteDelay = 120000
+
 interface TwitchWSMsg {
   id: string;
   displayName: string;
@@ -10,6 +12,12 @@ interface TwitchWSMsg {
   channel: string;
   msg: string;
   time: number;
+  emotes: TwitchWSMsgEmote[]
+}
+
+interface TwitchWSMsgEmote {
+  name: string;
+  id: string;
 }
 
 interface ChatItemProps {
@@ -17,31 +25,46 @@ interface ChatItemProps {
   displayCol?: string;
   channel?: string;
   time?: DateTime;
-  children?: ReactNode
+  emotes?: TwitchWSMsgEmote[];
+  children?: string;
 }
-const ChatItem: React.FC<ChatItemProps> = ({ displayName, displayCol, time, channel, children }) => {
+const ChatItem: React.FC<ChatItemProps> = ({
+  displayName, displayCol, channel, time, emotes, children
+}) => {
   const nameStyle: React.CSSProperties = {
     fontWeight: 'bold'
   };
   if (displayCol) nameStyle.color = displayCol;
 
-  //https://static-cdn.jtvnw.net/emoticons/v2/{emote id}/default/dark/{1-3}.0
-
   let chatTime = time ? <span className='chatTime'>
     {`${time.toLocaleString(DateTime.TIME_24_SIMPLE)}`}
   </span> : null;
   let chatChannel = channel ? <span className='channelName'>
-    [{channel.slice(0, 3).toUpperCase()}]&nbsp;
+    [{channel.slice(0, 3).toUpperCase()}]
   </span> : null;
   let chatUser = displayName ? <span className='chatName' style={nameStyle}>
-    {displayName}:&nbsp;
+    {displayName}:
   </span> : null;
 
+  let displayMsg: (React.ReactNode | string)[] = children ? children.split(/\b/) : [];
+  if (emotes) for (const emote of emotes) {
+    let emoteCount = 0;
+    for (const x in displayMsg) {
+      if (typeof displayMsg[x] !== 'string') continue;
+      console.debug(`Comparing ${emote.name} against ${displayMsg[x]}`)
+      if (displayMsg[x] === emote.name) {
+        displayMsg[x] = <img
+          key={`${time?.toMillis()}-${emote.name}-${++emoteCount}`}
+          className='chatEmote'
+          src={`https://static-cdn.jtvnw.net/emoticons/v2/${emote.id}/default/dark/1.0`}
+          alt={emote.name}
+        />
+      }
+    }
+  }
+
   return <p>
-    {chatTime}
-    {chatChannel}
-    {chatUser}
-    {children || ''}
+    {chatTime} {chatChannel} {chatUser} {displayMsg}
   </p>
 }
 
@@ -90,6 +113,7 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
       displayCol={inMsg.displayCol}
       time={DateTime.fromMillis(inMsg.time * 1000).toLocal()}
       channel={inMsg.channel}
+      emotes={inMsg.emotes}
     >
       {inMsg.msg}
     </ChatItem>;
@@ -102,7 +126,7 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
       this.setState({
         msgList: this.state.msgList.filter(i => i !== msg)
       })
-    }, 30000);
+    }, deleteDelay);
   }
 
   render() {
@@ -110,7 +134,6 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
     const { msgList } = this.state;
 
     return <div id='chat' className='multichat'>
-      <ChatItem>Hello World! This is the chat overlay.</ChatItem>
       {msgList}
     </div>
   }
