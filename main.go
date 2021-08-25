@@ -304,9 +304,18 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 	client.OnPrivateMessage(func(msg twitch.PrivateMessage) {
 		fmt.Printf("[%s] %s: %s\n", msg.Channel, msg.User.DisplayName, msg.Message)
 		if msg.Bits > 0 {
-			fmt.Printf("%s has given %d bit(s) to %s", msg.User.DisplayName, msg.Bits, msg.Channel)
+			fmt.Printf("%s has given %d bit(s) to %s\n", msg.User.DisplayName, msg.Bits, msg.Channel)
 		}
 		twitchchat <- msg
+	})
+
+	client.OnClearMessage(func(msg twitch.ClearMessage) {
+		fmt.Printf("[%s] delete %s\n", msg.Channel, msg.TargetMsgID)
+		twitchchat <- twitch.PrivateMessage{
+			ID:      msg.TargetMsgID,
+			Time:    time.Unix(-1, -1),
+			Channel: msg.Channel,
+		}
 	})
 
 	client.Join("kewliomzx")

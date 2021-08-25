@@ -28,6 +28,8 @@ interface ChatItemProps {
   emotes?: TwitchWSMsgEmote[];
   children?: string;
 }
+
+
 const ChatItem: React.FC<ChatItemProps> = ({
   displayName, displayCol, channel, time, emotes, children
 }) => {
@@ -46,12 +48,11 @@ const ChatItem: React.FC<ChatItemProps> = ({
     {displayName}:
   </span> : null;
 
-  let displayMsg: (React.ReactNode | string)[] = children ? children.split(/\b/) : [];
+  let displayMsg: (ReactNode | string)[] = children ? children.split(/\b/) : [];
   if (emotes) for (const emote of emotes) {
     let emoteCount = 0;
     for (const x in displayMsg) {
       if (typeof displayMsg[x] !== 'string') continue;
-      console.debug(`Comparing ${emote.name} against ${displayMsg[x]}`)
       if (displayMsg[x] === emote.name) {
         displayMsg[x] = <img
           key={`${time?.toMillis()}-${emote.name}-${++emoteCount}`}
@@ -68,12 +69,12 @@ const ChatItem: React.FC<ChatItemProps> = ({
   </p>
 }
 
-interface ChatProps {
 
+interface ChatProps {
 }
 interface ChatState {
   ws: Sockette;
-  msgList: ReactNode[];
+  msgList: JSX.Element[];
 }
 export default class Chat extends React.Component<ChatProps, ChatState> {
   /*constructor(props: ChatProps) {
@@ -107,6 +108,13 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
 
     console.log('Received:', e);
     console.debug('Parsed content:', inMsg);
+    if (inMsg.time < 0) {
+      console.debug('Deleting msg w/ id', inMsg.id);
+      this.setState({
+        msgList: msgList.filter((i: JSX.Element) => i.key !== inMsg.id)
+      });
+      return;
+    }
     const msg = <ChatItem
       key={inMsg.id}
       displayName={inMsg.displayName}
@@ -118,7 +126,6 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
       {inMsg.msg}
     </ChatItem>;
 
-    console.debug('Output chatitem:', msg);
     newMsgList.push(msg);
     this.setState({ msgList: newMsgList });
 
