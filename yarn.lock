@@ -2283,6 +2283,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/color-hash@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@types/color-hash@npm:1.0.1"
+  checksum: 1f5fb12068d9c32749ea6c4925b9d21a65b3869dc2609cf112e9d2966ff91807f142147d27104958d803208b04e721b656743058451125295faa260334723f43
+  languageName: node
+  linkType: hard
+
 "@types/eslint@npm:^7.2.6":
   version: 7.2.6
   resolution: "@types/eslint@npm:7.2.6"
@@ -4510,6 +4517,13 @@ __metadata:
   dependencies:
     color-name: ~1.1.4
   checksum: 79e6bdb9fd479a205c71d89574fccfb22bd9053bd98c6c4d870d65c132e5e904e6034978e55b43d69fcaa7433af2016ee203ce76eeba9cfa554b373e7f7db336
+  languageName: node
+  linkType: hard
+
+"color-hash@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "color-hash@npm:2.0.1"
+  checksum: 7e4726ded37088e9d05bb290f7cffa946f09b73986af2f06c1624b622aebb6cd266aa84a7aa9824819470820e2aa9a011b8347eac8cb748e710c8337b3ebdb57
   languageName: node
   linkType: hard
 
@@ -6797,6 +6811,13 @@ __metadata:
     debug:
       optional: true
   checksum: c17f14c186e8a5cc9e6f179f87286306151017a919735d68e2d440fd353da9f9d15789e03ea057a1c2b49dda9d662b05bb4370c7350f70de43b18d3ead2b36a0
+  languageName: node
+  linkType: hard
+
+"font-color-contrast@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "font-color-contrast@npm:1.1.1"
+  checksum: 88d2a3c29599d81ac63d3da09483c0b881b81845982a651912c4c45379970fa0c144fe20c1ffa394923c4a9a223b37b601308acbf96ba074b5afb56fcb7087e8
   languageName: node
   linkType: hard
 
@@ -13303,12 +13324,15 @@ resolve@1.18.1:
     "@testing-library/jest-dom": ^5.11.4
     "@testing-library/react": ^11.1.0
     "@testing-library/user-event": ^12.1.10
+    "@types/color-hash": ^1.0.1
     "@types/jest": ^26.0.15
     "@types/luxon": ^2
     "@types/node": ^12.0.0
     "@types/react": ^17.0.0
     "@types/react-dom": ^17.0.0
     "@types/react-router-dom": ^5
+    color-hash: ^2.0.1
+    font-color-contrast: ^1.1.1
     luxon: ^2.0.2
     react: ^17.0.2
     react-dom: ^17.0.2
