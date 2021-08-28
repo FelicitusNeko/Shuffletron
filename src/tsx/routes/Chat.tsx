@@ -5,9 +5,9 @@ import { DateTime } from 'luxon';
 import ColorHash from 'color-hash';
 
 const fontColorContrast = require('font-color-contrast');
-
-const deleteDelay = 120000
 const colorHash = new ColorHash();
+
+const deleteDelay = 30000;
 
 interface TwitchWSMsg {
   id: string;
@@ -47,7 +47,6 @@ const ChatItem: React.FC<ChatItemProps> = ({
     backgroundColor: chanBG,
     color: fontColorContrast(chanBG)
   };
-  console.debug(chanStyle);
 
   const chatTime = time ? <span className='chatTime'>
     {`${time.toLocaleString(DateTime.TIME_24_SIMPLE)}`}
