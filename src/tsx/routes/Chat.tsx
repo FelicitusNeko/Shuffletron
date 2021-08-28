@@ -2,8 +2,12 @@ import React, { ReactNode } from 'react';
 import Sockette from 'sockette';
 import '../../css/Chat.css';
 import { DateTime } from 'luxon';
+import ColorHash from 'color-hash';
+
+const fontColorContrast = require('font-color-contrast');
 
 const deleteDelay = 120000
+const colorHash = new ColorHash();
 
 interface TwitchWSMsg {
   id: string;
@@ -34,19 +38,27 @@ const ChatItem: React.FC<ChatItemProps> = ({
   displayName, displayCol, channel, time, emotes, children
 }) => {
   const nameStyle: React.CSSProperties = {
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: displayCol ?? colorHash.hex(displayName ?? children ?? '')
   };
-  if (displayCol) nameStyle.color = displayCol;
 
-  let chatTime = time ? <span className='chatTime'>
+  const chanBG = colorHash.hex(channel ?? displayName ?? children ?? '');
+  const chanStyle: React.CSSProperties = {
+    backgroundColor: chanBG,
+    color: fontColorContrast(chanBG)
+  };
+  console.debug(chanStyle);
+
+  const chatTime = time ? <span className='chatTime'>
     {`${time.toLocaleString(DateTime.TIME_24_SIMPLE)}`}
   </span> : null;
-  let chatChannel = channel ? <span className='channelName'>
-    [{channel.slice(0, 3).toUpperCase()}]
+  const chatChannel = channel ? <span className='channelName' style={chanStyle}>
+    {channel.slice(0, 3).toUpperCase()}
   </span> : null;
-  let chatUser = displayName ? <span className='chatName' style={nameStyle}>
+  const chatUser = displayName ? <span className='chatName' style={nameStyle}>
     {displayName}:
   </span> : null;
+  const chatLineBreak = (chatTime || chatChannel) ? <br/> : null;
 
   let displayMsg: (ReactNode | string)[] = children ? children.split(/\b/) : [];
   if (emotes) for (const emote of emotes) {
@@ -65,7 +77,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
   }
 
   return <p>
-    {chatTime} {chatChannel} {chatUser} {displayMsg}
+    {chatTime} {chatChannel}{chatLineBreak}{chatUser} {displayMsg}
   </p>
 }
 
