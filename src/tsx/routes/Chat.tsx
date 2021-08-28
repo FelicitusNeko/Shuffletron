@@ -39,7 +39,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
 }) => {
   const nameStyle: React.CSSProperties = {
     fontWeight: 'bold',
-    color: displayCol ?? colorHash.hex(displayName ?? children ?? '')
+    color: (displayCol && displayCol !== '') ? displayCol : colorHash.hex(displayName ?? children ?? '')
   };
 
   const chanBG = colorHash.hex(channel ?? displayName ?? children ?? '');
