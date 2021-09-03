@@ -1,28 +1,15 @@
 import React, { ReactNode } from 'react';
 import Sockette from 'sockette';
-import '../../css/Chat.css';
 import { DateTime } from 'luxon';
 import ColorHash from 'color-hash';
+
+import { TwitchWSMsg, TwitchWSMsgEmote } from '../interfaces/TwitchWS';
+import '../../css/Chat.css';
 
 const fontColorContrast = require('font-color-contrast');
 const colorHash = new ColorHash();
 
 const deleteDelay = 30000;
-
-interface TwitchWSMsg {
-  id: string;
-  displayName: string;
-  displayCol: string;
-  channel: string;
-  msg: string;
-  time: number;
-  emotes: TwitchWSMsgEmote[]
-}
-
-interface TwitchWSMsgEmote {
-  name: string;
-  id: string;
-}
 
 interface ChatItemProps {
   displayName?: string;
@@ -32,7 +19,6 @@ interface ChatItemProps {
   emotes?: TwitchWSMsgEmote[];
   children?: string;
 }
-
 
 const ChatItem: React.FC<ChatItemProps> = ({
   displayName, displayCol, channel, time, emotes, children
