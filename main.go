@@ -15,13 +15,17 @@ import (
 	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/imdario/mergo"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const port = 42069
 
+var db *sql.DB
+
 var wsListMutex = &sync.Mutex{}
 var wsWriteMutex = &sync.Mutex{}
+var dbAccessMutex = &sync.Mutex{}
 
 // -------------============== TWITCHWS CLASS
 
@@ -125,8 +129,8 @@ func (ws TwitchWS) wsReader() {
 	}
 }
 
-// -------------=========== MAIN CODE
-
+// -------------=========== ARTICLE ENDPOINTS (example code)
+/*
 type Article struct {
 	Id      string `json:"id"`
 	Title   string `json:"Title"`
@@ -134,65 +138,10 @@ type Article struct {
 	Content string `json:"content"`
 }
 
-type TwitchWSMsg struct {
-	Id          string             `json:"id"`
-	DisplayName string             `json:"displayName"`
-	DisplayCol  string             `json:"displayCol"`
-	Channel     string             `json:"channel"`
-	Message     string             `json:"msg"`
-	Time        int64              `json:"time"`
-	Emotes      []TwitchWSMsgEmote `json:"emotes"`
-}
-
-type TwitchWSMsgEmote struct {
-	Name string `json:"name"`
-	Id   string `json:"id"`
-}
-
 // let's declare a global Articles array
 // that we can then populate in our main function
 // to simulate a database
 var Articles []Article
-
-// We'll need to define an Upgrader
-// this will require a Read and Write buffer size
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func initDb() {
-	db, err := sql.Open("sqlite3", "./shuffletron.sqlite3")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	sqlStmt := `
-  CREATE TABLE IF NOT EXISTS lists (
-    listId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    listName VARCHAR NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS games (
-    gameId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    listId INTEGER NOT NULL REFERENCES lists(listId),
-    gameName TEXT NOT NULL,
-    displayName TEXT DEFAULT NULL,
-    description TEXT DEFAULT NULL,
-    weight INTEGER NOT NULL DEFAULT 1,
-    status INTEGER NOT NULL DEFAULT 0,
-    activeDisplayName TEXT GENERATED ALWAYS AS (IFNULL(displayName, gameName)) VIRTUAL
-  );
-  `
-
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return
-	}
-}
 
 func returnAllArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Endpoint hit: returnAllArticles\n")
@@ -252,6 +201,304 @@ func updateArticle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+*/
+
+// -------------=========== LISTS ENDPOINTS
+type STList struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func returnAllLists(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: returnAllLists\n")
+
+	stmt := `SELECT * FROM lists`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	rows, err := db.Query(stmt)
+	if err != nil {
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+		return
+	}
+	defer rows.Close()
+
+	var lists []STList
+	for rows.Next() {
+		var list STList
+		if err := rows.Scan(&list.Id, &list.Name); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+		}
+		lists = append(lists, list)
+	}
+
+	if err = rows.Err(); err != nil {
+		fmt.Printf("%q: after exec %s\n", err, stmt)
+	}
+
+	json.NewEncoder(w).Encode(lists)
+}
+
+func returnSingleList(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: returnSingleList\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+
+	stmt := `SELECT * FROM lists WHERE listId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	if row := db.QueryRow(stmt, id); row.Err() != nil {
+		err := row.Err()
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+	} else {
+		var list STList
+		if err := row.Scan(&list.Id, &list.Name); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			// TODO: add error output
+		} else {
+			json.NewEncoder(w).Encode(list)
+		}
+	}
+}
+
+func createNewList(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: createNewList\n")
+
+	if reqBody, err := ioutil.ReadAll(r.Body); err != nil {
+		fmt.Printf("err: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: add error output
+	} else {
+		var list STList
+		err := json.Unmarshal(reqBody, &list)
+		if err != nil {
+			fmt.Printf("err: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest)
+			// TODO: add error output
+			return
+		}
+
+		dbAccessMutex.Lock()
+		defer dbAccessMutex.Unlock()
+
+		stmt := `
+			INSERT INTO lists (listName)
+			VALUES (?)
+		`
+
+		result, err := db.Exec(stmt, list.Name)
+		if err != nil {
+			fmt.Printf("err: %v\n", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			// TODO: add error ouptut
+		} else {
+			list.Id, _ = result.LastInsertId()
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(list)
+		}
+	}
+}
+
+func updateList(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: updateList\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: add error output
+		return
+	}
+
+	stmt := `SELECT * FROM lists WHERE listId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	if row := db.QueryRow(stmt, id); row.Err() != nil {
+		err := row.Err()
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+	} else {
+		var listRetrieve STList
+		if err := row.Scan(&listRetrieve.Id, &listRetrieve.Name); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			// TODO: add error output
+		} else {
+			var listUpdate STList
+			err := json.Unmarshal(reqBody, &listUpdate)
+			if err != nil {
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				// TODO: add error output
+				return
+			}
+
+			listUpdate.Id = listRetrieve.Id
+			err = mergo.Merge(&listRetrieve, listUpdate, mergo.WithOverride)
+			if err != nil {
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				// TODO: add error output
+				return
+			}
+
+			stmt := `
+				UPDATE lists
+				SET listName = ?
+				WHERE listId = ?
+			`
+
+			if result, err := db.Exec(stmt, listRetrieve.Name, listRetrieve.Id); err != nil {
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				// TODO: add error output
+			} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
+				w.WriteHeader(http.StatusNotFound)
+				// TODO: add error output
+				return
+			} else {
+				json.NewEncoder(w).Encode(listRetrieve)
+			}
+		}
+	}
+}
+
+func deleteList(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: deleteList\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+
+	stmt := `
+		DELETE FROM lists
+		WHERE listId = ?
+	`
+
+	if result, err := db.Exec(stmt, id); err != nil {
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+		return
+	} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		// TODO: add error output
+		return
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// -------------=========== GAMES ENDPOINTS
+type STGame struct {
+	Id          int    `json:"id"`
+	ListId      int    `json:"listId"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Weight      int    `json:"weight"`
+	Status      int    `json:"status"`
+}
+
+func returnAllGames(w http.ResponseWriter, r *http.Request) {
+}
+
+func returnSingleGame(w http.ResponseWriter, r *http.Request) {
+}
+
+func createNewGame(w http.ResponseWriter, r *http.Request) {
+}
+
+func updateGame(w http.ResponseWriter, r *http.Request) {
+}
+
+func deleteGame(w http.ResponseWriter, r *http.Request) {
+}
+
+// -------------=========== MAIN CODE
+
+type TwitchWSMsg struct {
+	Id          string             `json:"id"`
+	DisplayName string             `json:"displayName"`
+	DisplayCol  string             `json:"displayCol"`
+	Channel     string             `json:"channel"`
+	Message     string             `json:"msg"`
+	Time        int64              `json:"time"`
+	Emotes      []TwitchWSMsgEmote `json:"emotes"`
+}
+
+type TwitchWSMsgEmote struct {
+	Name string `json:"name"`
+	Id   string `json:"id"`
+}
+
+// We'll need to define an Upgrader
+// this will require a Read and Write buffer size
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func initDb() {
+	sqlStmt := `
+  CREATE TABLE IF NOT EXISTS lists (
+    listId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    listName VARCHAR NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS games (
+    gameId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    listId INTEGER NOT NULL REFERENCES lists(listId),
+    gameName TEXT NOT NULL,
+    displayName TEXT DEFAULT NULL,
+    description TEXT DEFAULT NULL,
+    weight INTEGER NOT NULL DEFAULT 1,
+    status INTEGER NOT NULL DEFAULT 0,
+    activeDisplayName TEXT GENERATED ALWAYS AS (IFNULL(displayName, gameName)) VIRTUAL
+  );
+  `
+
+	dbAccessMutex.Lock()
+	_, err := db.Exec(sqlStmt)
+	if err != nil {
+		log.Panicf("%q: %s\n", err, sqlStmt)
+		return
+	}
+	dbAccessMutex.Unlock()
+}
 
 func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	// TODO: look more into CORS
@@ -278,11 +525,17 @@ func handleReqs( /*twitchchat chan twitch.PrivateMessage*/ ) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/ws", wsEndpoint)
 
-	router.HandleFunc("/articles", createNewArticle).Methods("POST")
-	router.HandleFunc("/articles", returnAllArticles)
-	router.HandleFunc("/articles/{id}", deleteArticle).Methods("DELETE")
-	router.HandleFunc("/articles/{id}", updateArticle).Methods("PUT")
-	router.HandleFunc("/articles/{id}", returnSingleArticle)
+	router.HandleFunc("/lists", createNewList).Methods("POST")
+	router.HandleFunc("/lists", returnAllLists)
+	router.HandleFunc("/lists/{id}", deleteList).Methods("DELETE")
+	router.HandleFunc("/lists/{id}", updateList).Methods("PUT")
+	router.HandleFunc("/lists/{id}", returnSingleList)
+
+	router.HandleFunc("/games", createNewGame).Methods("POST")
+	router.HandleFunc("/games", returnAllGames)
+	router.HandleFunc("/games/{id}", deleteGame).Methods("DELETE")
+	router.HandleFunc("/games/{id}", updateGame).Methods("PUT")
+	router.HandleFunc("/games/{id}", returnSingleGame)
 
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, err := os.Stat("./build/" + r.URL.Path[1:]); err == nil {
@@ -293,6 +546,7 @@ func handleReqs( /*twitchchat chan twitch.PrivateMessage*/ ) {
 			http.ServeFile(w, r, "./build/index.html")
 		}
 	})
+	fmt.Println("Server is go")
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
@@ -356,12 +610,14 @@ func main() {
 	fmt.Println("Starting server")
 	twitchchat := make(chan twitch.PrivateMessage)
 
-	Articles = []Article{
-		{Id: "1", Title: "Hello", Desc: "Article Description", Content: "Article Content"},
-		{Id: "2", Title: "Hello 2", Desc: "Article Description", Content: "Article Content"},
+	var err error
+	db, err = sql.Open("sqlite3", "./shuffletron.sqlite3")
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer db.Close()
+	initDb()
 
-	//initDb()
 	go twitchHandler(twitchchat)
 	go twitchTransmitter(twitchchat)
 	handleReqs()
