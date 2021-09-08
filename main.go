@@ -424,8 +424,8 @@ func deleteList(w http.ResponseWriter, r *http.Request) {
 
 // -------------=========== GAMES ENDPOINTS
 type STGame struct {
-	Id          int    `json:"id"`
-	ListId      int    `json:"listId"`
+	Id          int64  `json:"id"`
+	ListId      int64  `json:"listId"`
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
@@ -434,18 +434,224 @@ type STGame struct {
 }
 
 func returnAllGames(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: returnAllGames\n")
+
+	stmt := `SELECT * FROM games`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	rows, err := db.Query(stmt)
+	if err != nil {
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+		return
+	}
+	defer rows.Close()
+
+	var games []STGame
+	for rows.Next() {
+		var game STGame
+		if err := rows.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description, &game.Weight, &game.Status); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+		}
+		games = append(games, game)
+	}
+
+	if err = rows.Err(); err != nil {
+		fmt.Printf("%q: after exec %s\n", err, stmt)
+	}
+
+	json.NewEncoder(w).Encode(games)
 }
 
 func returnSingleGame(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: returnSingleGame\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+
+	stmt := `SELECT * FROM games WHERE gameId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	if row := db.QueryRow(stmt, id); row.Err() != nil {
+		err := row.Err()
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+	} else {
+		var game STGame
+		if err := row.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description, &game.Weight, &game.Status); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			// TODO: add error output
+		} else {
+			json.NewEncoder(w).Encode(game)
+		}
+	}
 }
 
 func createNewGame(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: createNewGame\n")
+
+	if reqBody, err := ioutil.ReadAll(r.Body); err != nil {
+		fmt.Printf("err: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: add error output
+	} else {
+		var game STGame
+		err := json.Unmarshal(reqBody, &game)
+		if err != nil {
+			fmt.Printf("err: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest)
+			// TODO: add error output
+			return
+		}
+
+		dbAccessMutex.Lock()
+		defer dbAccessMutex.Unlock()
+
+		stmt := `
+			INSERT INTO lists (listId, gameName, displayName, description, weight, status)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`
+
+		result, err := db.Exec(stmt, game.ListId, game.Name, game.DisplayName, game.Description, game.Weight, game.Status)
+		if err != nil {
+			fmt.Printf("err: %v\n", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			// TODO: add error ouptut
+		} else {
+			game.Id, _ = result.LastInsertId()
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(game)
+		}
+	}
 }
 
 func updateGame(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: updateList\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: add error output
+		return
+	}
+
+	stmt := `SELECT * FROM games WHERE gameId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	if row := db.QueryRow(stmt, id); row.Err() != nil {
+		err := row.Err()
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+	} else {
+		var gameRetrieve STGame
+		if err := row.Scan(&gameRetrieve.Id, &gameRetrieve.Name); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+			if err == sql.ErrNoRows {
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			// TODO: add error output
+		} else {
+			var gameUpdate STGame
+			err := json.Unmarshal(reqBody, &gameUpdate)
+			if err != nil {
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				// TODO: add error output
+				return
+			}
+
+			gameUpdate.Id = gameRetrieve.Id
+			err = mergo.Merge(&gameRetrieve, gameUpdate, mergo.WithOverride)
+			if err != nil {
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				// TODO: add error output
+				return
+			}
+
+			stmt := `
+				UPDATE games
+				SET listId = ?,
+					gameName = ?,
+					displayName = ?,
+					description = ?,
+					weight = ?,
+					status = ?
+				WHERE gameId = ?
+			`
+
+			if result, err := db.Exec(stmt, gameRetrieve.ListId, gameRetrieve.Name, gameRetrieve.DisplayName,
+				gameRetrieve.Description, gameRetrieve.Weight, gameRetrieve.Status,
+				gameRetrieve.Id); err != nil {
+
+				fmt.Printf("err: %v\n", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				// TODO: add error output
+			} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
+				w.WriteHeader(http.StatusNotFound)
+				// TODO: add error output
+				return
+			} else {
+				json.NewEncoder(w).Encode(gameRetrieve)
+			}
+		}
+	}
 }
 
 func deleteGame(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: deleteGame\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		// TODO: output error data "Invalid Id"
+		return
+	}
+
+	stmt := `
+		DELETE FROM games
+		WHERE gameId = ?
+	`
+
+	if result, err := db.Exec(stmt, id); err != nil {
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		w.WriteHeader(http.StatusInternalServerError)
+		// TODO: add error output
+		return
+	} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		// TODO: add error output
+		return
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // -------------=========== MAIN CODE
