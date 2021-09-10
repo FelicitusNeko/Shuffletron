@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Thor-x86/nullable"
 	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -128,80 +129,6 @@ func (ws TwitchWS) wsReader() {
 
 	}
 }
-
-// -------------=========== ARTICLE ENDPOINTS (example code)
-/*
-type Article struct {
-	Id      string `json:"id"`
-	Title   string `json:"Title"`
-	Desc    string `json:"desc"`
-	Content string `json:"content"`
-}
-
-// let's declare a global Articles array
-// that we can then populate in our main function
-// to simulate a database
-var Articles []Article
-
-func returnAllArticles(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Endpoint hit: returnAllArticles\n")
-	json.NewEncoder(w).Encode(Articles)
-}
-
-func returnSingleArticle(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Endpoint hit: returnSingleArticle\n")
-	vars := mux.Vars(r)
-	key := vars["id"]
-
-	for _, article := range Articles {
-		if article.Id == key {
-			json.NewEncoder(w).Encode(article)
-		}
-	}
-}
-
-func createNewArticle(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Endpoint hit: createNewArticle\n")
-
-	reqBody, _ := ioutil.ReadAll(r.Body)
-	var article Article
-	json.Unmarshal(reqBody, &article)
-
-	Articles = append(Articles, article)
-
-	json.NewEncoder(w).Encode(article)
-}
-
-func deleteArticle(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Endpoint hit: deleteArticle\n")
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	for index, article := range Articles {
-		if article.Id == id {
-			Articles = append(Articles[:index], Articles[index+1:]...)
-		}
-	}
-}
-
-func updateArticle(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Endpoint hit: updateArticle\n")
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	for index, article := range Articles {
-		if article.Id == id {
-			reqBody, _ := ioutil.ReadAll(r.Body)
-			var updatedArticle Article
-			json.Unmarshal(reqBody, &updatedArticle)
-			Articles[index] = updatedArticle
-			json.NewEncoder(w).Encode(updatedArticle)
-		}
-	}
-}
-*/
 
 // -------------=========== LISTS ENDPOINTS
 type STList struct {
@@ -424,13 +351,13 @@ func deleteList(w http.ResponseWriter, r *http.Request) {
 
 // -------------=========== GAMES ENDPOINTS
 type STGame struct {
-	Id          int64  `json:"id"`
-	ListId      int64  `json:"listId"`
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName"`
-	Description string `json:"description"`
-	Weight      int    `json:"weight"`
-	Status      int    `json:"status"`
+	Id          int64           `json:"id"`
+	ListId      int64           `json:"listId"`
+	Name        string          `json:"name"`
+	DisplayName nullable.String `json:"displayName"`
+	Description nullable.String `json:"description"`
+	Weight      nullable.Int    `json:"weight"`
+	Status      nullable.Int    `json:"status"`
 }
 
 func returnAllGames(w http.ResponseWriter, r *http.Request) {
@@ -451,9 +378,11 @@ func returnAllGames(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	var games []STGame
+	var activeDisplayName string
 	for rows.Next() {
 		var game STGame
-		if err := rows.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description, &game.Weight, &game.Status); err != nil {
+		if err := rows.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description,
+			&game.Weight, &game.Status, &activeDisplayName); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 		}
 		games = append(games, game)
@@ -488,7 +417,9 @@ func returnSingleGame(w http.ResponseWriter, r *http.Request) {
 		// TODO: add error output
 	} else {
 		var game STGame
-		if err := row.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description, &game.Weight, &game.Status); err != nil {
+		var activeDisplayName string
+		if err := row.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description,
+			&game.Weight, &game.Status, &activeDisplayName); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
 				w.WriteHeader(http.StatusNotFound)
@@ -519,15 +450,26 @@ func createNewGame(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		dbAccessMutex.Lock()
-		defer dbAccessMutex.Unlock()
-
 		stmt := `
-			INSERT INTO lists (listId, gameName, displayName, description, weight, status)
+			INSERT INTO games (listId, gameName, displayName, description, weight, status)
 			VALUES (?, ?, ?, ?, ?, ?)
 		`
 
-		result, err := db.Exec(stmt, game.ListId, game.Name, game.DisplayName, game.Description, game.Weight, game.Status)
+		if game.Weight.Get() == nil {
+			weightDefault := 1
+			game.Weight.Set(&weightDefault)
+		}
+
+		if game.Status.Get() == nil {
+			statusDefault := 0
+			game.Status.Set(&statusDefault)
+		}
+
+		dbAccessMutex.Lock()
+		defer dbAccessMutex.Unlock()
+
+		result, err := db.Exec(stmt, game.ListId, game.Name, game.DisplayName, game.Description,
+			game.Weight, game.Status)
 		if err != nil {
 			fmt.Printf("err: %v\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -569,7 +511,10 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 		// TODO: add error output
 	} else {
 		var gameRetrieve STGame
-		if err := row.Scan(&gameRetrieve.Id, &gameRetrieve.Name); err != nil {
+		var activeDisplayName string
+		if err := row.Scan(&gameRetrieve.Id, &gameRetrieve.ListId, &gameRetrieve.Name,
+			&gameRetrieve.DisplayName, &gameRetrieve.Description, &gameRetrieve.Weight,
+			&gameRetrieve.Weight, &activeDisplayName); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
 				w.WriteHeader(http.StatusNotFound)
