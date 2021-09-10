@@ -8,6 +8,7 @@ import '../../css/Chat.css';
 
 const fontColorContrast = require('font-color-contrast');
 const colorHash = new ColorHash();
+const {port} = window.location
 
 const deleteDelay = 30000;
 
@@ -80,7 +81,7 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
 
   componentDidMount() {
     this.setState({
-      ws: new Sockette('ws://localhost:42069/ws', {
+      ws: new Sockette(`ws://localhost:${port ?? '80'}/ws`, {
         timeout: 5000,
         maxAttempts: 10,
         onopen: e => console.log('Connected!', e),
