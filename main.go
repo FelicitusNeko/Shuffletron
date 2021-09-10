@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const port = 42069
+type STConfig struct {
+	Port     int      `json:"port"`
+	Channels []string `json:"channels"`
+}
+
+const defaultPort = 42068
+const defaultChannel = "kewliomzx"
 
 var db *sql.DB
 
@@ -630,7 +637,7 @@ func initDb() {
     listName VARCHAR NOT NULL
   );
 
-	CREATE TABLE games (
+	CREATE TABLE IF NOT EXISTS games (
     gameId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     listId INTEGER NOT NULL,
     gameName TEXT NOT NULL,
@@ -673,7 +680,7 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	wsListMutex.Unlock()
 }
 
-func handleReqs( /*twitchchat chan twitch.PrivateMessage*/ ) {
+func handleReqs(port int) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/ws", wsEndpoint)
 
@@ -693,16 +700,19 @@ func handleReqs( /*twitchchat chan twitch.PrivateMessage*/ ) {
 		if _, err := os.Stat("./build/" + r.URL.Path[1:]); err == nil {
 			fmt.Println("sending " + r.RequestURI)
 			http.ServeFile(w, r, "./build/"+r.URL.Path[1:])
+		} else if strings.HasSuffix(r.RequestURI, "/stconfig.json") {
+			fmt.Println("Client requested config")
+			http.ServeFile(w, r, "./stconfig.json")
 		} else {
-			fmt.Println("req not found " + r.RequestURI)
+			fmt.Println("req not found " + r.RequestURI + " - serving index instead")
 			http.ServeFile(w, r, "./build/index.html")
 		}
 	})
-	fmt.Println("Server is go")
+	fmt.Println("Server is go on port " + strconv.Itoa(port))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
-func twitchHandler(twitchchat chan twitch.PrivateMessage) {
+func twitchHandler(twitchchat chan twitch.PrivateMessage, channels []string) {
 	client := twitch.NewAnonymousClient()
 
 	//defer client.Disconnect()
@@ -724,7 +734,7 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage) {
 		}
 	})
 
-	client.Join("kewliomzx")
+	client.Join(channels...)
 
 	for {
 		err := client.Connect()
@@ -758,8 +768,40 @@ func twitchTransmitter(msg chan twitch.PrivateMessage) {
 	}
 }
 
+func readConfig() STConfig {
+	defaultConfig := STConfig{
+		Port:     defaultPort,
+		Channels: []string{defaultChannel},
+	}
+
+	file, err := os.ReadFile("./stconfig.json")
+	if err != nil {
+		fmt.Println("Failed to read stconfig.json")
+		return defaultConfig
+	}
+
+	var config STConfig
+	err = json.Unmarshal(file, &config)
+	if err != nil {
+		fmt.Println("Failed to parse stconfig.json")
+		return defaultConfig
+	}
+
+	if config.Port == 0 {
+		config.Port = defaultPort
+	}
+
+	if len(config.Channels) == 0 {
+		config.Channels = []string{defaultChannel}
+	}
+
+	return config
+}
+
 func main() {
 	fmt.Println("Starting server")
+	config := readConfig()
+
 	twitchchat := make(chan twitch.PrivateMessage)
 
 	var err error
@@ -770,7 +812,7 @@ func main() {
 	defer db.Close()
 	initDb()
 
-	go twitchHandler(twitchchat)
+	go twitchHandler(twitchchat, config.Channels)
 	go twitchTransmitter(twitchchat)
-	handleReqs()
+	handleReqs(config.Port)
 }
