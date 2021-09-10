@@ -630,15 +630,16 @@ func initDb() {
     listName VARCHAR NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS games (
+	CREATE TABLE games (
     gameId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    listId INTEGER NOT NULL REFERENCES lists(listId),
+    listId INTEGER NOT NULL,
     gameName TEXT NOT NULL,
     displayName TEXT DEFAULT NULL,
     description TEXT DEFAULT NULL,
     weight INTEGER NOT NULL DEFAULT 1,
     status INTEGER NOT NULL DEFAULT 0,
-    activeDisplayName TEXT GENERATED ALWAYS AS (IFNULL(displayName, gameName)) VIRTUAL
+    activeDisplayName TEXT GENERATED ALWAYS AS (IFNULL(displayName, gameName)) VIRTUAL,
+		FOREIGN KEY (listId) REFERENCES lists(listId) ON UPDATE CASCADE ON DELETE CASCADE
   );
   `
 
