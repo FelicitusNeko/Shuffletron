@@ -3,12 +3,12 @@ import Sockette from 'sockette';
 import { DateTime } from 'luxon';
 import ColorHash from 'color-hash';
 
-import { TwitchWSMsg, TwitchWSMsgEmote } from '../interfaces/TwitchWS';
+import { TwitchWSMsg, TwitchWSMsgEmote, TwitchWSMsgType } from '../interfaces/TwitchWS';
 import '../../css/Chat.css';
 
 const fontColorContrast = require('font-color-contrast');
 const colorHash = new ColorHash();
-const {port} = window.location
+const { port } = window.location
 
 const deleteDelay = 30000;
 
@@ -26,7 +26,8 @@ const ChatItem: React.FC<ChatItemProps> = ({
 }) => {
   const nameStyle: React.CSSProperties = {
     fontWeight: 'bold',
-    color: (displayCol && displayCol !== '') ? displayCol : colorHash.hex(displayName ?? children ?? '')
+    color: (displayCol && displayCol !== '') ? displayCol : colorHash.hex(displayName ?? 
+      children ?? '')
   };
 
   const chanBG = colorHash.hex(channel ?? displayName ?? children ?? '');
@@ -44,7 +45,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
   const chatUser = displayName ? <span className='chatName' style={nameStyle}>
     {displayName}:
   </span> : null;
-  const chatLineBreak = (chatTime || chatChannel) ? <br/> : null;
+  const chatLineBreak = (chatTime || chatChannel) ? <br /> : null;
 
   let displayMsg: (ReactNode | string)[] = children ? children.split(/\b/) : [];
   if (emotes) for (const emote of emotes) {
@@ -63,7 +64,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
   }
 
   return <p>
-    {chatTime} {chatChannel}{chatLineBreak}{chatUser} {displayMsg}
+    {chatTime} {chatChannel}{chatLineBreak}<div className='msgBody'>{chatUser} {displayMsg}</div>
   </p>
 }
 
@@ -106,32 +107,36 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
 
     console.log('Received:', e);
     console.debug('Parsed content:', inMsg);
-    if (inMsg.time < 0) {
-      console.debug('Deleting msg w/ id', inMsg.id);
-      this.setState({
-        msgList: msgList.filter((i: JSX.Element) => i.key !== inMsg.id)
-      });
-      return;
+
+    switch (inMsg.msgType) {
+      case TwitchWSMsgType.Message: {
+        const msg = <ChatItem
+          key={inMsg.id}
+          displayName={inMsg.displayName}
+          displayCol={inMsg.displayCol}
+          time={DateTime.fromMillis(inMsg.time * 1000).toLocal()}
+          channel={inMsg.channel}
+          emotes={inMsg.emotes}
+        >
+          {inMsg.msg}
+        </ChatItem>;
+
+        newMsgList.push(msg);
+        this.setState({ msgList: newMsgList });
+
+        setTimeout(() => {
+          this.setState({
+            msgList: this.state.msgList.filter(i => i !== msg)
+          })
+        }, deleteDelay);
+      } break;
+      case TwitchWSMsgType.Delete: {
+        console.debug('Deleting msg w/ id', inMsg.id);
+        this.setState({
+          msgList: msgList.filter((i: JSX.Element) => i.key !== inMsg.id)
+        });
+      }
     }
-    const msg = <ChatItem
-      key={inMsg.id}
-      displayName={inMsg.displayName}
-      displayCol={inMsg.displayCol}
-      time={DateTime.fromMillis(inMsg.time * 1000).toLocal()}
-      channel={inMsg.channel}
-      emotes={inMsg.emotes}
-    >
-      {inMsg.msg}
-    </ChatItem>;
-
-    newMsgList.push(msg);
-    this.setState({ msgList: newMsgList });
-
-    setTimeout(() => {
-      this.setState({
-        msgList: this.state.msgList.filter(i => i !== msg)
-      })
-    }, deleteDelay);
   }
 
   render() {
