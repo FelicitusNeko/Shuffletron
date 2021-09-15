@@ -1,6 +1,5 @@
 #chat p {
-  margin: .1em;
-  word-wrap: break-word;
+  margin: .1em .2em;
   line-height: 95%;
 }
 
@@ -15,6 +14,14 @@
   font-family: 'Bahnschrift';
   font-weight: bold;
   font-stretch: extra-condensed;
+}
+
+#chat .msgBody {
+  margin: none;
+  padding-left: .5em;
+  font-size: 90%;
+  text-indent: -.5em;
+  word-wrap: break-word;
 }
 
 #chat img.chatEmote {
