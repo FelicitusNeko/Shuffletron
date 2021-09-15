@@ -1,17 +1,21 @@
 import React from 'react';
 import { Switch, Route, Link } from 'react-router-dom'
+
 import Chat from './routes/Chat';
+import STEntry from './routes/STEntry';
 //import '../css/App.css';
 
-function App() {
+const App: React.FC = () => {
   return (
     <div className='App'>
       <Switch>
-        <Route path='/chatoverlay'>
-          <Chat />
-        </Route>
+        <Route path='/chatoverlay' component={Chat} />
+        <Route path='/st-entry' component={STEntry} />
         <Route>
-          <Link to='/chatoverlay'>Chat overlay</Link>
+          <ul>
+            <li><Link to='/chatoverlay'>Chat overlay</Link></li>
+            <li><Link to='/st-entry'>Shuffletron Entry</Link></li>
+          </ul>
         </Route>
       </Switch>
     </div>
