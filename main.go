@@ -26,7 +26,7 @@ type STConfig struct {
 	Channels []string `json:"channels"`
 }
 
-const defaultPort = 42068
+const defaultPort = 42069
 const defaultChannel = "kewliomzx"
 
 var db *sql.DB
@@ -38,7 +38,7 @@ var dbAccessMutex = &sync.Mutex{}
 // -------------============== TWITCHWS CLASS
 
 type TwitchWS struct {
-	msg  chan twitch.PrivateMessage
+	msg  chan TwitchWSMsg
 	conn *websocket.Conn
 	id   int
 	open bool
@@ -46,6 +46,31 @@ type TwitchWS struct {
 
 var openWS []TwitchWS
 var wsId int
+
+type TwitchWSMsg struct {
+	MsgType     TwitchWSMsgType    `json:"msgType"`
+	Id          string             `json:"id"`
+	DisplayName string             `json:"displayName"`
+	DisplayCol  string             `json:"displayCol"`
+	Channel     string             `json:"channel"`
+	Message     string             `json:"msg"`
+	Time        int64              `json:"time"`
+	Emotes      []TwitchWSMsgEmote `json:"emotes"`
+}
+
+type TwitchWSMsgType int
+
+const (
+	msgTypeUnknown TwitchWSMsgType = iota
+	msgTypeMessage
+	msgTypeAction
+	msgTypeDelete
+)
+
+type TwitchWSMsgEmote struct {
+	Name string `json:"name"`
+	Id   string `json:"id"`
+}
 
 func (ws TwitchWS) wsWriter() {
 	for {
@@ -55,23 +80,7 @@ func (ws TwitchWS) wsWriter() {
 			return
 		}
 
-		var outEmotes []TwitchWSMsgEmote
-		for _, inEmote := range msg.Emotes {
-			outEmotes = append(outEmotes, TwitchWSMsgEmote{
-				Name: inEmote.Name,
-				Id:   inEmote.ID,
-			})
-		}
-
-		outMsg, err := json.Marshal(TwitchWSMsg{
-			Id:          msg.ID,
-			DisplayName: msg.User.DisplayName,
-			DisplayCol:  msg.User.Color,
-			Channel:     msg.Channel,
-			Time:        msg.Time.Unix(),
-			Message:     msg.Message,
-			Emotes:      outEmotes,
-		})
+		outMsg, err := json.Marshal(msg)
 		if err != nil {
 			log.Println("Error in marshall op:", err)
 		}
@@ -111,7 +120,7 @@ func (ws TwitchWS) wsReader() {
 		}
 		wsListMutex.Unlock()
 		if ws.msg != nil {
-			ws.msg <- twitch.PrivateMessage{}
+			ws.msg <- TwitchWSMsg{}
 		}
 	}()
 
@@ -608,21 +617,6 @@ func deleteGame(w http.ResponseWriter, r *http.Request) {
 
 // -------------=========== MAIN CODE
 
-type TwitchWSMsg struct {
-	Id          string             `json:"id"`
-	DisplayName string             `json:"displayName"`
-	DisplayCol  string             `json:"displayCol"`
-	Channel     string             `json:"channel"`
-	Message     string             `json:"msg"`
-	Time        int64              `json:"time"`
-	Emotes      []TwitchWSMsgEmote `json:"emotes"`
-}
-
-type TwitchWSMsgEmote struct {
-	Name string `json:"name"`
-	Id   string `json:"id"`
-}
-
 // We'll need to define an Upgrader
 // this will require a Read and Write buffer size
 var upgrader = websocket.Upgrader{
@@ -712,7 +706,7 @@ func handleReqs(port int) {
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), router))
 }
 
-func twitchHandler(twitchchat chan twitch.PrivateMessage, channels []string) {
+func twitchHandler(twitchchat chan TwitchWSMsg, channels []string) {
 	client := twitch.NewAnonymousClient()
 
 	//defer client.Disconnect()
@@ -722,15 +716,34 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage, channels []string) {
 		if msg.Bits > 0 {
 			fmt.Printf("%s has given %d bit(s) to %s\n", msg.User.DisplayName, msg.Bits, msg.Channel)
 		}
-		twitchchat <- msg
+
+		var outEmotes []TwitchWSMsgEmote
+		for _, inEmote := range msg.Emotes {
+			outEmotes = append(outEmotes, TwitchWSMsgEmote{
+				Name: inEmote.Name,
+				Id:   inEmote.ID,
+			})
+		}
+
+		twitchchat <- TwitchWSMsg{
+			MsgType:     msgTypeMessage,
+			Id:          msg.ID,
+			DisplayName: msg.User.DisplayName,
+			DisplayCol:  msg.User.Color,
+			Channel:     msg.Channel,
+			Time:        msg.Time.Unix(),
+			Message:     msg.Message,
+			Emotes:      outEmotes,
+		}
 	})
 
 	client.OnClearMessage(func(msg twitch.ClearMessage) {
 		fmt.Printf("[%s] delete %s\n", msg.Channel, msg.TargetMsgID)
-		twitchchat <- twitch.PrivateMessage{
-			ID:      msg.TargetMsgID,
-			Time:    time.Unix(-1, -1),
+		twitchchat <- TwitchWSMsg{
+			MsgType: msgTypeMessage,
+			Id:      msg.TargetMsgID,
 			Channel: msg.Channel,
+			Message: msg.Message,
 		}
 	})
 
@@ -747,7 +760,7 @@ func twitchHandler(twitchchat chan twitch.PrivateMessage, channels []string) {
 	}
 }
 
-func twitchTransmitter(msg chan twitch.PrivateMessage) {
+func twitchTransmitter(msg chan TwitchWSMsg) {
 	for {
 		msgIn := <-msg
 		sentTo := 0
@@ -757,7 +770,7 @@ func twitchTransmitter(msg chan twitch.PrivateMessage) {
 				continue
 			}
 			if ws.msg == nil {
-				ws.msg = make(chan twitch.PrivateMessage)
+				ws.msg = make(chan TwitchWSMsg)
 				go ws.wsWriter()
 			}
 			ws.msg <- msgIn
@@ -802,7 +815,7 @@ func main() {
 	fmt.Println("Starting server")
 	config := readConfig()
 
-	twitchchat := make(chan twitch.PrivateMessage)
+	twitchchat := make(chan TwitchWSMsg)
 
 	var err error
 	db, err = sql.Open("sqlite3", "./shuffletron.sqlite3")
