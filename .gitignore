@@ -35,3 +35,5 @@ yarn-error.log*
 *.code-workspace
 shuffletron.sqlite3
 stconfig.json
+build.zip
+shuffletron.exe
