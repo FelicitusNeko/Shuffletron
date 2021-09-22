@@ -5,6 +5,8 @@ import ColorHash from 'color-hash';
 
 import { TwitchWSMsg, TwitchWSMsgEmote, TwitchWSMsgType } from '../interfaces/TwitchWS';
 import '../../css/Chat.css';
+import emotePlaceholder from '../../assets/emote-placeholder.png';
+import ReactImageFallback from 'react-image-fallback';
 
 const fontColorContrast = require('font-color-contrast');
 const colorHash = new ColorHash();
@@ -26,7 +28,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
 }) => {
   const nameStyle: React.CSSProperties = {
     fontWeight: 'bold',
-    color: (displayCol && displayCol !== '') ? displayCol : colorHash.hex(displayName ?? 
+    color: (displayCol && displayCol !== '') ? displayCol : colorHash.hex(displayName ??
       children ?? '')
   };
 
@@ -52,9 +54,18 @@ const ChatItem: React.FC<ChatItemProps> = ({
     let emoteCount = 0;
     for (const x in displayMsg) {
       if (typeof displayMsg[x] !== 'string') continue;
+      // TODO: check by regex instead (maybe don't need to after all?)
+
+      /*
+      const displayString = displayMsg[x]?.toString();
+      if (!displayString) continue;
+      if ((new RegExp(emote.name)).test(displayString)) {
+      */
+
       if (displayMsg[x] === emote.name) {
-        displayMsg[x] = <img
-          key={`${time?.toMillis()}-${emote.name}-${++emoteCount}`}
+        displayMsg[x] = <ReactImageFallback
+          key={`emote-${time?.toMillis()}-${emote.name}-${++emoteCount}`}
+          fallbackImage={emotePlaceholder}
           className='chatEmote'
           src={`https://static-cdn.jtvnw.net/emoticons/v2/${emote.id}/default/dark/1.0`}
           alt={emote.name}
@@ -103,7 +114,7 @@ export default class Chat extends React.Component<ChatProps, ChatState> {
   onMessage = (e: MessageEvent<any>) => {
     const { msgList } = this.state;
     const newMsgList = msgList.slice();
-    const inMsg = JSON.parse(e.data) as TwitchWSMsg
+    const inMsg = JSON.parse(e.data) as TwitchWSMsg;
 
     console.log('Received:', e);
     console.debug('Parsed content:', inMsg);
