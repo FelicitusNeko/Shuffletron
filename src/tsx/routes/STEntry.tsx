@@ -15,7 +15,7 @@ const STEntry: React.FC = (props) => {
   }
 
   return <div className='shuffletron stEntry'>
-    <Tabs defaultIndex={1} onSelect={onTabSelect}>
+    <Tabs onSelect={onTabSelect}>
       <TabList>
         <Tab>Lists</Tab>
         <Tab>Games</Tab>
