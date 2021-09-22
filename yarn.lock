@@ -2468,6 +2468,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-image-fallback@npm:^8":
+  version: 8.0.3
+  resolution: "@types/react-image-fallback@npm:8.0.3"
+  dependencies:
+    "@types/react": "*"
+  checksum: 77ceb7234f31ae8b3c0ab17a4393f793b74ad666e72dcb36399ce406cb5841804606c0b53c812dc63535ba09dec287f713cbac66ab169f012c6174bba03f5e39
+  languageName: node
+  linkType: hard
+
 "@types/react-router-dom@npm:^5":
   version: 5.1.8
   resolution: "@types/react-router-dom@npm:5.1.8"
@@ -6721,6 +6730,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"filter-invalid-dom-props@npm:1.0.0":
+  version: 1.0.0
+  resolution: "filter-invalid-dom-props@npm:1.0.0"
+  dependencies:
+    html-attributes: 1.1.0
+  checksum: fb078a95d7e73648a8877b7b033a998b217785d6407d088573dd7323a39e3905b2260aaba11ecfa2d8685780fc85178129cec1ce88a1fb98fb2e222f2ea6ff40
+  languageName: node
+  linkType: hard
+
 "finalhandler@npm:~1.1.2":
   version: 1.1.2
   resolution: "finalhandler@npm:1.1.2"
@@ -7462,6 +7480,13 @@ fsevents@^1.2.7:
   version: 1.0.0
   resolution: "hsla-regex@npm:1.0.0"
   checksum: 9aa6eb9ff6c102d2395435aa5d1d91eae20043c4b1497c543d8db501c05f3edacd9a07fb34a987059d7902dba415af4cb4e610f751859ae8e7525df4ffcd085f
+  languageName: node
+  linkType: hard
+
+"html-attributes@npm:1.1.0":
+  version: 1.1.0
+  resolution: "html-attributes@npm:1.1.0"
+  checksum: 0c242d637e862897f07d5088dc79ecd0702418e1861167e6c386ef7485f47ddcc8441c5264f65560fb6ba121c3388a2221a9c873b092b21f03f7f9304bd84c70
   languageName: node
   linkType: hard
 
@@ -11924,7 +11949,7 @@ fsevents@^1.2.7:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.5.0, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2":
+"prop-types@npm:^15.5.0, prop-types@npm:^15.5.10, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2":
   version: 15.7.2
   resolution: "prop-types@npm:15.7.2"
   dependencies:
@@ -12201,6 +12226,18 @@ fsevents@^1.2.7:
   version: 6.0.9
   resolution: "react-error-overlay@npm:6.0.9"
   checksum: 695853bc885e798008a00c10d8d94e5ac91626e8130802fea37345f9c037f41b80104345db2ee87f225feb4a4ef71b0df572b17c378a6d397b6815f6d4a84293
+  languageName: node
+  linkType: hard
+
+"react-image-fallback@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "react-image-fallback@npm:8.0.0"
+  dependencies:
+    filter-invalid-dom-props: 1.0.0
+    prop-types: ^15.5.10
+  peerDependencies:
+    react: ">=0.13"
+  checksum: b37719ebbd372c92f8477d5a84993b825c9ba590618957742378674e579213541d2a096b6623431d7e97024e6636da727ee9e2335b4a3969d8d662ae249eb4a6
   languageName: node
   linkType: hard
 
@@ -13358,6 +13395,7 @@ resolve@1.18.1:
     "@types/node": ^12.0.0
     "@types/react": ^17.0.0
     "@types/react-dom": ^17.0.0
+    "@types/react-image-fallback": ^8
     "@types/react-router-dom": ^5
     "@types/react-tabs": ^2.3.3
     color-hash: ^2.0.1
@@ -13365,6 +13403,7 @@ resolve@1.18.1:
     luxon: ^2.0.2
     react: ^17.0.2
     react-dom: ^17.0.2
+    react-image-fallback: ^8.0.0
     react-router-dom: ^5.2.0
     react-scripts: 4.0.3
     react-tabs: ^3.2.2
