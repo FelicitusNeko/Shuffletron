@@ -146,6 +146,14 @@ func (ws TwitchWS) wsReader() {
 	}
 }
 
+// -------------=========== UNIVERSAL API FUNCTIONS
+func outputApiError(w http.ResponseWriter, errMsg string, errCode int) {
+	w.WriteHeader(errCode)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"err": errMsg,
+	})
+}
+
 // -------------=========== LISTS ENDPOINTS
 type STList struct {
 	Id   int64  `json:"id"`
@@ -163,8 +171,7 @@ func returnAllLists(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(stmt)
 	if err != nil {
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -190,8 +197,7 @@ func returnSingleList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -203,18 +209,16 @@ func returnSingleList(w http.ResponseWriter, r *http.Request) {
 	if row := db.QueryRow(stmt, id); row.Err() != nil {
 		err := row.Err()
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 	} else {
 		var list STList
 		if err := row.Scan(&list.Id, &list.Name); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
-				w.WriteHeader(http.StatusNotFound)
+				outputApiError(w, fmt.Sprintf("List ID not found: %d", id), http.StatusNotFound)
 			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
 			}
-			// TODO: add error output
 		} else {
 			json.NewEncoder(w).Encode(list)
 		}
@@ -226,15 +230,13 @@ func createNewList(w http.ResponseWriter, r *http.Request) {
 
 	if reqBody, err := ioutil.ReadAll(r.Body); err != nil {
 		fmt.Printf("err: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Invalid data: %q", err), http.StatusBadRequest)
 	} else {
 		var list STList
 		err := json.Unmarshal(reqBody, &list)
 		if err != nil {
 			fmt.Printf("err: %v\n", err)
-			w.WriteHeader(http.StatusBadRequest)
-			// TODO: add error output
+			outputApiError(w, fmt.Sprintf("Could not parse JSON: %q", err), http.StatusBadRequest)
 			return
 		}
 
@@ -249,8 +251,7 @@ func createNewList(w http.ResponseWriter, r *http.Request) {
 		result, err := db.Exec(stmt, list.Name)
 		if err != nil {
 			fmt.Printf("err: %v\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			// TODO: add error ouptut
+			outputApiError(w, fmt.Sprintf("Error preparing query: %q", err), http.StatusInternalServerError)
 		} else {
 			list.Id, _ = result.LastInsertId()
 			w.WriteHeader(http.StatusCreated)
@@ -264,15 +265,13 @@ func updateList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("err: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Invalid data: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -284,25 +283,22 @@ func updateList(w http.ResponseWriter, r *http.Request) {
 	if row := db.QueryRow(stmt, id); row.Err() != nil {
 		err := row.Err()
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 	} else {
 		var listRetrieve STList
 		if err := row.Scan(&listRetrieve.Id, &listRetrieve.Name); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
-				w.WriteHeader(http.StatusNotFound)
+				outputApiError(w, fmt.Sprintf("List ID not found: %d", id), http.StatusNotFound)
 			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
 			}
-			// TODO: add error output
 		} else {
 			var listUpdate STList
 			err := json.Unmarshal(reqBody, &listUpdate)
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Could not parse JSON: %q", err), http.StatusBadRequest)
 				return
 			}
 
@@ -310,8 +306,7 @@ func updateList(w http.ResponseWriter, r *http.Request) {
 			err = mergo.Merge(&listRetrieve, listUpdate, mergo.WithOverride)
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Error merging data: %q", err), http.StatusInternalServerError)
 				return
 			}
 
@@ -323,11 +318,9 @@ func updateList(w http.ResponseWriter, r *http.Request) {
 
 			if result, err := db.Exec(stmt, listRetrieve.Name, listRetrieve.Id); err != nil {
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Error preparing query: %q", err), http.StatusInternalServerError)
 			} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
-				w.WriteHeader(http.StatusNotFound)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("List ID not found: %d", id), http.StatusNotFound)
 				return
 			} else {
 				json.NewEncoder(w).Encode(listRetrieve)
@@ -341,8 +334,7 @@ func deleteList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -353,12 +345,10 @@ func deleteList(w http.ResponseWriter, r *http.Request) {
 
 	if result, err := db.Exec(stmt, id); err != nil {
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 		return
 	} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("List ID not found: %d", id), http.StatusNotFound)
 		return
 	} else {
 		w.WriteHeader(http.StatusNoContent)
@@ -387,8 +377,7 @@ func returnAllGames(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(stmt)
 	if err != nil {
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -416,8 +405,7 @@ func returnSingleGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -429,8 +417,7 @@ func returnSingleGame(w http.ResponseWriter, r *http.Request) {
 	if row := db.QueryRow(stmt, id); row.Err() != nil {
 		err := row.Err()
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 	} else {
 		var game STGame
 		var activeDisplayName string
@@ -438,11 +425,10 @@ func returnSingleGame(w http.ResponseWriter, r *http.Request) {
 			&game.Weight, &game.Status, &activeDisplayName); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
-				w.WriteHeader(http.StatusNotFound)
+				outputApiError(w, fmt.Sprintf("Game ID not found: %d", id), http.StatusNotFound)
 			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
 			}
-			// TODO: add error output
 		} else {
 			json.NewEncoder(w).Encode(game)
 		}
@@ -454,15 +440,13 @@ func createNewGame(w http.ResponseWriter, r *http.Request) {
 
 	if reqBody, err := ioutil.ReadAll(r.Body); err != nil {
 		fmt.Printf("err: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Invalid data: %q", err), http.StatusBadRequest)
 	} else {
 		var game STGame
 		err := json.Unmarshal(reqBody, &game)
 		if err != nil {
 			fmt.Printf("err: %v\n", err)
-			w.WriteHeader(http.StatusBadRequest)
-			// TODO: add error output
+			outputApiError(w, fmt.Sprintf("Could not parse JSON: %q", err), http.StatusBadRequest)
 			return
 		}
 
@@ -488,8 +472,7 @@ func createNewGame(w http.ResponseWriter, r *http.Request) {
 			game.Weight, game.Status)
 		if err != nil {
 			fmt.Printf("err: %v\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			// TODO: add error ouptut
+			outputApiError(w, fmt.Sprintf("Error preparing query: %q", err), http.StatusInternalServerError)
 		} else {
 			game.Id, _ = result.LastInsertId()
 			w.WriteHeader(http.StatusCreated)
@@ -503,15 +486,13 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("err: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Invalid data: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -523,8 +504,7 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 	if row := db.QueryRow(stmt, id); row.Err() != nil {
 		err := row.Err()
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 	} else {
 		var gameRetrieve STGame
 		var activeDisplayName string
@@ -533,18 +513,16 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 			&gameRetrieve.Weight, &activeDisplayName); err != nil {
 			fmt.Printf("%q: during exec %s\n", err, stmt)
 			if err == sql.ErrNoRows {
-				w.WriteHeader(http.StatusNotFound)
+				outputApiError(w, fmt.Sprintf("Game ID not found: %d", id), http.StatusNotFound)
 			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
 			}
-			// TODO: add error output
 		} else {
 			var gameUpdate STGame
 			err := json.Unmarshal(reqBody, &gameUpdate)
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusBadRequest)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Could not parse JSON: %q", err), http.StatusBadRequest)
 				return
 			}
 
@@ -552,8 +530,7 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 			err = mergo.Merge(&gameRetrieve, gameUpdate, mergo.WithOverride)
 			if err != nil {
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Error merging data: %q", err), http.StatusInternalServerError)
 				return
 			}
 
@@ -573,11 +550,9 @@ func updateGame(w http.ResponseWriter, r *http.Request) {
 				gameRetrieve.Id); err != nil {
 
 				fmt.Printf("err: %v\n", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Error preparing query: %q", err), http.StatusInternalServerError)
 			} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
-				w.WriteHeader(http.StatusNotFound)
-				// TODO: add error output
+				outputApiError(w, fmt.Sprintf("Game ID not found: %d", id), http.StatusNotFound)
 				return
 			} else {
 				json.NewEncoder(w).Encode(gameRetrieve)
@@ -591,8 +566,7 @@ func deleteGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		// TODO: output error data "Invalid Id"
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
 		return
 	}
 
@@ -603,12 +577,10 @@ func deleteGame(w http.ResponseWriter, r *http.Request) {
 
 	if result, err := db.Exec(stmt, id); err != nil {
 		fmt.Printf("%q: during query %s\n", err, stmt)
-		w.WriteHeader(http.StatusInternalServerError)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
 		return
 	} else if rowsAff, _ := result.RowsAffected(); rowsAff == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		// TODO: add error output
+		outputApiError(w, fmt.Sprintf("Game ID not found: %d", id), http.StatusNotFound)
 		return
 	} else {
 		w.WriteHeader(http.StatusNoContent)
