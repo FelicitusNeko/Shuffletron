@@ -3,7 +3,6 @@ import { Switch, Route, Link } from 'react-router-dom'
 
 import Chat from './routes/Chat';
 import STEntry from './routes/STEntry';
-//import '../css/App.css';
 
 const App: React.FC = () => {
   return (
