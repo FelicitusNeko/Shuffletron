@@ -13,7 +13,7 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
   const [name, setName] = useState('');
   const [delList, setDelList] = useState(0);
   const [listList, setListList] = useState<STList[] | undefined>();
-  const [addOp, setAddOp] = useState(false);
+  const [activeOp, setActiveOp] = useState(false);
 
   useEffect(() => {
     fetch(`http://localhost:${port}/lists`)
@@ -38,9 +38,9 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
       console.error('No list name specified');
       setStatus(`Error: No list name specified`);
     } else {
-      setStatus(`Updating list...`);
-      setAddOp(true);
-      console.debug('Adding list named:', name);
+      setStatus(`Creating list...`);
+      console.debug('Creating list named:', name);
+      setActiveOp(true);
       fetch(`http://localhost:${port}/lists`, {
         method: 'POST',
         body: JSON.stringify({ name } as Partial<STList>)
@@ -49,7 +49,7 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
         .then(r => {
           if (r.err) throw new Error(r.err);
           else {
-            setAddOp(false);
+            setActiveOp(false);
             const newList = r as STList
             if (listList) setListList(listList.slice(0).concat(newList));
             setStatus(`List created: ${newList.name}`);
@@ -57,10 +57,10 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
           }
         })
         .catch((e: Error) => {
-          setAddOp(false);
+          setActiveOp(false);
           console.error(e);
           setStatus(`Error: ${e.message}`);
-        })
+        });
     }
   }
 
@@ -69,46 +69,52 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
     const delListName = listList.reduce((r, i) => i.id === delList ? i.name : r, '')
     if (delListName === '') setStatus('Error: Cannot find list to delete');
     else {
+      setStatus('Deleting list...');
       console.debug('Deleting list named:', delListName);
+      setActiveOp(true);
       fetch(`http://localhost:${port}/lists/${delList}`, {
         method: 'DELETE'
       })
         .then(r => {
+          setActiveOp(false);
           setListList(listList.filter(i => i.id !== delList))
           setDelList(0);
           setStatus(`Deleted list: ${delListName}`);
         })
         .catch((e: Error) => {
+          setActiveOp(false);
           console.error(e);
           setStatus(`Error: ${e.message}`);
-        })
+        });
     }
   }
 
   return <>
     <h3>Lists</h3>
     <p>
-      <input type='text'
-        placeholder='Add new list'
-        value={name}
-        onChange={onAddListNameChange}
-        disabled={addOp}
-        required
-      /> <button disabled={addOp} onClick={onListAdd}>Add</button>
+      <fieldset disabled={activeOp}>
+        <legend>Add new list</legend>
+        <input type='text'
+          placeholder='List name'
+          value={name}
+          onChange={onAddListNameChange}
+          required
+        /> <button onClick={onListAdd}>Add</button>
+      </fieldset>
     </p>
     <p>
-      Delete list: <select
-        value={delList}
-        onChange={onListDeleteChange}
-        disabled={!listList || listList.length === 0}
-      >
-        {listList
-          ? listList.map(i => <option key={`dellist-${i.id}`} value={i.id} >{i.name}</option>)
-          : <option>Loading...</option>
-        }
-      </select> <button disabled={!listList || listList.length === 0} onClick={onListDelete}>
-        Delete
-      </button>
+      <fieldset disabled={activeOp || !listList || listList.length === 0}>
+        <legend>Delete list</legend>
+        <select
+          value={delList}
+          onChange={onListDeleteChange}
+        >
+          {listList
+            ? listList.map(i => <option key={`dellist-${i.id}`} value={i.id} >{i.name}</option>)
+            : <option>Loading...</option>
+          }
+        </select> <button onClick={onListDelete}>Delete</button>
+      </fieldset>
     </p>
   </>
 }
