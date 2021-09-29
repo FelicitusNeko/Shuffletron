@@ -400,6 +400,46 @@ func returnAllGames(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(games)
 }
 
+func returnAllGamesInList(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Endpoint hit: returnAllGamesInList\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
+		return
+	}
+
+	stmt := `SELECT * FROM games WHERE listId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	rows, err := db.Query(stmt, id)
+	if err != nil {
+		fmt.Printf("%q: during query %s\n", err, stmt)
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var games []STGame
+	var activeDisplayName string
+	for rows.Next() {
+		var game STGame
+		if err := rows.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description,
+			&game.Weight, &game.Status, &activeDisplayName); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, stmt)
+		}
+		games = append(games, game)
+	}
+
+	if err = rows.Err(); err != nil {
+		fmt.Printf("%q: after exec %s\n", err, stmt)
+	}
+
+	json.NewEncoder(w).Encode(games)
+}
+
 func returnSingleGame(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Endpoint hit: returnSingleGame\n")
 	vars := mux.Vars(r)
@@ -658,6 +698,7 @@ func handleReqs(port int) {
 
 	router.HandleFunc("/games", createNewGame).Methods("POST")
 	router.HandleFunc("/games", returnAllGames)
+	router.HandleFunc("/games/byList/{id}", returnAllGamesInList)
 	router.HandleFunc("/games/{id}", deleteGame).Methods("DELETE")
 	router.HandleFunc("/games/{id}", updateGame).Methods("PUT")
 	router.HandleFunc("/games/{id}", returnSingleGame)
