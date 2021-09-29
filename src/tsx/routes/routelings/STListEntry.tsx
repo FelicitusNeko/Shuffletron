@@ -91,31 +91,27 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
 
   return <>
     <h3>Lists</h3>
-    <p>
-      <fieldset disabled={activeOp}>
-        <legend>Add new list</legend>
-        <input type='text'
-          placeholder='List name'
-          value={name}
-          onChange={onAddListNameChange}
-          required
-        /> <button onClick={onListAdd}>Add</button>
-      </fieldset>
-    </p>
-    <p>
-      <fieldset disabled={activeOp || !listList || listList.length === 0}>
-        <legend>Delete list</legend>
-        <select
-          value={delList}
-          onChange={onListDeleteChange}
-        >
-          {listList
-            ? listList.map(i => <option key={`dellist-${i.id}`} value={i.id} >{i.name}</option>)
-            : <option>Loading...</option>
-          }
-        </select> <button onClick={onListDelete}>Delete</button>
-      </fieldset>
-    </p>
+    <fieldset disabled={activeOp}>
+      <legend>Add new list</legend>
+      <input type='text'
+        placeholder='List name'
+        value={name}
+        onChange={onAddListNameChange}
+        required
+      /> <button onClick={onListAdd}>Add</button>
+    </fieldset>
+    <fieldset disabled={activeOp || !listList || listList.length === 0}>
+      <legend>Delete list</legend>
+      <select
+        value={delList}
+        onChange={onListDeleteChange}
+      >
+        {listList
+          ? listList.map(i => <option key={`dellist-${i.id}`} value={i.id} >{i.name}</option>)
+          : <option>Loading...</option>
+        }
+      </select> <button onClick={onListDelete}>Delete</button>
+    </fieldset>
   </>
 }
 
