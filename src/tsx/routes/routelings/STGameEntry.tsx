@@ -1,22 +1,67 @@
-import React, { ChangeEvent, useState } from 'react';
-
-// Test code
-const listList = ['whee', 'games', 'blah'];
-const gameList = ['Abadox', 'ActRaiser', 'CrossCode'];
+import React, { ChangeEvent, useEffect, useState } from 'react';
+import { STGame, STList } from '../../interfaces/Shuffletron';
 
 const MinWeight = 1;
 const MaxWeight = 25000;
+
+const { port } = window.location;
 
 interface STGameEntryProps {
   setStatus: React.Dispatch<React.SetStateAction<string>>
 }
 const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
+  const [curList, setCurList] = useState(0);
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
   const [weight, setWeight] = useState(1);
   const [statusPlayed, setStatusPlayed] = useState(false);
   const [delGame, setDelGame] = useState(0);
+
+  const [listList, setListList] = useState<STList[] | undefined>();
+  const [gameList, setGameList] = useState<STGame[] | undefined>();
+
+  const [activeOp, setActiveOp] = useState(false);
+
+  useEffect(() => {
+    console.debug('Loading lists');
+
+    fetch(`http://localhost:${port}/lists`)
+      .then(r => r.json())
+      .then(r => {
+        const newList = r as STList[];
+        setListList(newList);
+        if (newList.length > 0) setCurList(newList[0].id);
+      })
+      .catch((e: Error) => {
+        console.error(e);
+        setStatus(`Error getting lists: ${e.message}`);
+      });
+  }, [setStatus]);
+
+  useEffect(() => {
+    if (listList) {
+      const curListName = listList.reduce((r, i) => i.id === curList ? i.name : r, '');
+      if (curListName === '') {
+        setGameList([]);
+        return;
+      }
+      console.debug(`Loading game list for ${curListName}`);
+
+      fetch(`http://localhost:${port}/games/byList/${curList}`)
+        .then(r => r.json())
+        .then(r => setGameList(r as STGame[]))
+        .catch((e: Error) => {
+          console.error(e);
+          setStatus(`Error getting games: ${e.message}`);
+        });
+    }
+  }, [listList, curList, setStatus])
+
+  const onCurListChange = ({ currentTarget }: ChangeEvent<HTMLSelectElement>) => {
+    const newCurList = Number.parseInt(currentTarget.value);
+    if (!isNaN(newCurList)) setCurList(newCurList);
+  }
 
   const onGameAddNameChange = ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
     setName(currentTarget.value);
@@ -45,9 +90,39 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
     } else if (weight < MinWeight || weight > MaxWeight) {
       console.error(`Invalid weight value; must be ${MinWeight}-${MaxWeight}`);
     } else {
+      setStatus(`Adding game...`);
       console.debug('Adding game named:', name);
-      // if successful then
-      onGameAddClear();
+      setActiveOp(true);
+
+      const newGame: Partial<STGame> = {
+        listId: curList,
+        name,
+        weight
+      };
+      if (displayName) newGame.displayName = displayName;
+      if (description) newGame.description = description;
+      newGame.status = 0;
+      if (statusPlayed) newGame.status |= 1;
+      
+      fetch(`http://localhost:${port}/games`, {
+        method: 'POST',
+        body: JSON.stringify(newGame)
+      })
+        .then(r => r.json())
+        .then(r => {
+          if (r.err) throw new Error(r.err);
+          else {
+            const newGame = r as STGame
+            if (gameList) setGameList(gameList.slice(0).concat(newGame));
+            setStatus(`Game added: ${newGame.name}`);
+            onGameAddClear();
+          }
+        })
+        .catch((e: Error) => {
+          setActiveOp(false);
+          console.error(e);
+          setStatus(`Error: ${e.message}`);
+        });
     }
   }
 
@@ -57,79 +132,113 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
     setDescription('');
     setWeight(1);
     setStatusPlayed(false);
+    setActiveOp(false);
   }
 
   const onGameDeleteChange = ({ currentTarget }: ChangeEvent<HTMLSelectElement>) => {
-    setDelGame(currentTarget.selectedIndex);
+    setDelGame(Number.parseInt(currentTarget.value));
   }
 
   const onGameDelete = () => {
-    console.debug('Deleting game named:', gameList[delGame]);
+    if (gameList) {
+      const delGameName = gameList.reduce((r, i) => i.id === delGame ? i.name : r, '');
+      if (delGameName === '') setStatus('Error: Cannot find list to delete');
+      else {
+        setStatus('Deleting list...');
+        console.debug('Deleting game named:', delGameName);
+        setActiveOp(true);
+        fetch(`http://localhost:${port}/games/${delGame}`, {
+          method: 'DELETE'
+        })
+          .then(r => {
+            setActiveOp(false);
+            setListList(gameList.filter(i => i.id !== delGame))
+            setDelGame(0);
+            setStatus(`Deleted game: ${delGameName}`);
+          })
+          .catch((e: Error) => {
+            setActiveOp(false);
+            console.error(e);
+            setStatus(`Error: ${e.message}`);
+          });
+      }
+    }
   }
-
 
   return <>
     <h3>Games</h3>
     <p>
-      List: <select>
-        {listList.map((i, x) => <option key={`worklist-${x}`} value={x} >{i}</option>)}
+      List: <select onChange={onCurListChange}>
+        {listList
+          ? listList.map(i => <option key={`worklist-${i.id}`} value={i.id}>{i.name}</option>)
+          : <option>Loading...</option>
+        }
       </select>
     </p>
-    <p>
-      <input type='text'
-        placeholder='Game name'
-        required
-        value={name}
-        onChange={onGameAddNameChange}
-      />
-    </p>
-    <p>
-      <input type='text'
-        placeholder='Display name (opt)'
-        maxLength={20}
-        value={displayName}
-        onChange={onGameAddDisplayNameChange}
-      />
-    </p>
-    <p>Game will display as: <span className='digifont'>
-      {displayName.length > 0 ? displayName : name.substring(0, 20)}
-    </span></p>
-    <p>
-      <textarea
-        placeholder='Description'
-        value={description}
-        rows={4} cols={60}
-        onChange={onGameAddDescriptionChange}
-      />
-    </p>
-    <p>
-      Weight: <input type='number'
-        value={weight}
-        min={1}
-        max={25000}
-        onChange={onGameAddWeightChange}
-      />
-    </p>
-    <p>Status:</p>
-    <ul>
-      <li>
-        <label>
-          <input type='checkbox'
-            checked={statusPlayed}
-            onChange={onGameAddPlayedChange}
-          /> Played
-        </label>
-      </li>
-    </ul>
-    <p>
-      <button onClick={onGameAdd}>Add</button>&nbsp;
-      <button onClick={onGameAddClear}>Clear</button>
-    </p>
-    <p>
-      Delete game: <select value={delGame} onChange={onGameDeleteChange}>
-        {gameList.map((i, x) => <option key={`delgame-${x}`} value={x} >{i}</option>)}
-      </select> <button onClick={onGameDelete}>Delete</button>
-    </p>
+    <fieldset disabled={activeOp || !listList || listList.length === 0}>
+      <legend>Add new game</legend>
+      <p>
+        <input type='text'
+          placeholder='Game name'
+          required
+          value={name}
+          onChange={onGameAddNameChange}
+        />
+      </p>
+      <p>
+        <input type='text'
+          placeholder='Display name (opt)'
+          maxLength={20}
+          value={displayName}
+          onChange={onGameAddDisplayNameChange}
+        />
+      </p>
+      <p>Game will display as: <span className='digifont'>
+        {displayName.length > 0 ? displayName : name.substring(0, 20)}
+      </span></p>
+      <p>
+        <textarea
+          placeholder='Description'
+          value={description}
+          rows={4} cols={60}
+          onChange={onGameAddDescriptionChange}
+        />
+      </p>
+      <p>
+        Weight: <input type='number'
+          value={weight}
+          min={1}
+          max={25000}
+          onChange={onGameAddWeightChange}
+        />
+      </p>
+      <p>Status:</p>
+      <ul>
+        <li>
+          <label>
+            <input type='checkbox'
+              checked={statusPlayed}
+              onChange={onGameAddPlayedChange}
+            /> Played
+          </label>
+        </li>
+      </ul>
+      <p>
+        <button onClick={onGameAdd}>Add</button>&nbsp;
+        <button onClick={onGameAddClear}>Clear</button>
+      </p>
+    </fieldset>
+    <fieldset disabled={activeOp || !listList || !gameList || gameList.length === 0}>
+      <legend>Delete game</legend>
+      <p>
+        <select value={delGame} onChange={onGameDeleteChange}>
+          {gameList
+            ? gameList.map(i => <option key={`delgame-${i.id}`} value={i.id} >{i.name}</option>)
+            : <option>Loading...</option>
+          }
+        </select> <button onClick={onGameDelete}>Delete</button>
+      </p>
+    </fieldset>
   </>;
 }
 
