@@ -19,6 +19,7 @@
     "web-vitals": "^1.0.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^8.7.0",
     "@types/color-hash": "^1.0.1",
     "@types/jest": "^26.0.15",
     "@types/luxon": "^2",
