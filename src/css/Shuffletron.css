@@ -1,0 +1,86 @@
+div.shuffletron {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+
+  background-color: #444;
+  color: white;
+  overflow-y: auto;
+}
+
+div.shuffletron div.stPanel {
+  margin: auto;
+  padding: 15px;
+
+  min-height: 100%;
+  width: 75%;
+  min-width: 500px;
+
+  background-color: #0A7329;
+  border-left: 3px ridge #0FB942;
+  border-right: 3px ridge #0FB942;
+  box-shadow: 0px 0px 30px black;
+}
+
+div.shuffletron textarea {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  sans-serif;
+}
+
+div.shuffletron div.stPanel input,
+div.shuffletron div.stPanel select,
+div.shuffletron div.stPanel textarea {
+  background-color: #053714;
+  color: white;
+}
+
+div.shuffletron div.stPanel input:disabled,
+div.shuffletron div.stPanel select:disabled,
+div.shuffletron div.stPanel textarea:disabled {
+  background-color: #444;
+  color: lightgray;
+}
+
+div.shuffletron div.stPanel button {
+  background-color: #0FB942;
+  color: white;
+  font-weight: bold;
+}
+
+div.shuffletron div.stPanel button:disabled {
+  background-color: gray;
+}
+
+div.shuffletron span.stDigiDisplay {
+  display:inline-block;
+  position: relative;
+  padding: .1em;
+  margin-left: .2em;
+  border: inset 2px #08531f;
+  background-color: #51270B;
+  z-index: 3;
+}
+
+div.shuffletron span.stDigiDisplay span.stDigiForeground {
+  position: absolute;
+  top: .1em;
+  left: .1em;
+  color: #DCB9A2;
+  text-shadow: 0px 0px 3px #DD915D;
+  z-index: 1;
+}
+
+
+
+div.shuffletron span.stDigiDisplay span.stDigiForeground:empty {
+  content: '?';
+}
+
+div.shuffletron span.stDigiDisplay span.stDigiBackground {
+  color: #76360B;
+  user-select: none;
+  z-index: 2;
+}

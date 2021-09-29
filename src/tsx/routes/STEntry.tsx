@@ -5,7 +5,7 @@ import STGameEntry from './routelings/STGameEntry';
 import STListEntry from './routelings/STListEntry';
 
 import 'react-tabs/style/react-tabs.css';
-import '../../css/STEntry.css';
+import '../../css/Shuffletron.css';
 
 const STEntry: React.FC = (props) => {
   const [status, setStatus] = useState('Test status');
@@ -15,7 +15,7 @@ const STEntry: React.FC = (props) => {
   }
 
   return <div className='shuffletron stEntry'>
-    <Tabs onSelect={onTabSelect}>
+    <Tabs onSelect={onTabSelect} className='stPanel'>
       <TabList>
         <Tab>Lists</Tab>
         <Tab>Games</Tab>
