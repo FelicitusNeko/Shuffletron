@@ -103,7 +103,7 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
       if (description) newGame.description = description;
       newGame.status = 0;
       if (statusPlayed) newGame.status |= 1;
-      
+
       fetch(`http://localhost:${port}/games`, {
         method: 'POST',
         body: JSON.stringify(newGame)
@@ -193,8 +193,9 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
           onChange={onGameAddDisplayNameChange}
         />
       </p>
-      <p>Game will display as: <span className='digifont'>
-        {displayName.length > 0 ? displayName : name.substring(0, 20)}
+      <p>Game will display as: <span className='digifont stDigiDisplay'>
+        <span className='stDigiBackground'>@@@@@@@@@@@@@@@@@@@@</span>
+        <span className='stDigiForeground'>{displayName.length > 0 ? displayName : name.substring(0, 20)}</span>
       </span></p>
       <p>
         <textarea
@@ -242,4 +243,4 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
   </>;
 }
 
-export default STGameEntry
+export default STGameEntry;

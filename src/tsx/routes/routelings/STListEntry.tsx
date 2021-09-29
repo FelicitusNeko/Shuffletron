@@ -3,9 +3,6 @@ import { STList } from '../../interfaces/Shuffletron';
 
 const { port } = window.location
 
-// Test code
-//const listList = ['whee', 'games', 'blah'];
-
 interface STListEntryProps {
   setStatus: React.Dispatch<React.SetStateAction<string>>
 }
@@ -112,7 +109,7 @@ const STListEntry: React.FC<STListEntryProps> = ({ setStatus }) => {
         }
       </select> <button onClick={onListDelete}>Delete</button>
     </fieldset>
-  </>
+  </>;
 }
 
-export default STListEntry
+export default STListEntry;
