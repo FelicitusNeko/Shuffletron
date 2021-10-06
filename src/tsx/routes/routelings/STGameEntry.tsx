@@ -16,6 +16,7 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
   const [description, setDescription] = useState('');
   const [weight, setWeight] = useState(1);
   const [statusPlayed, setStatusPlayed] = useState(false);
+  const [statusMultiplayer, setStatusMultiplayer] = useState(false);
   const [delGame, setDelGame] = useState(0);
 
   const [listList, setListList] = useState<STList[] | undefined>();
@@ -84,6 +85,10 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
     setStatusPlayed(currentTarget.checked);
   }
 
+  const onGameAddMultiplayerChange = ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+    setStatusMultiplayer(currentTarget.checked);
+  }
+
   const onGameAdd = () => {
     if (name.length === 0) {
       console.error('No game name specified');
@@ -103,6 +108,7 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
       if (description) newGame.description = description;
       newGame.status = 0;
       if (statusPlayed) newGame.status |= 1;
+      if (statusMultiplayer) newGame.status |= 2;
 
       fetch(`http://localhost:${port}/games`, {
         method: 'POST',
@@ -132,6 +138,7 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
     setDescription('');
     setWeight(1);
     setStatusPlayed(false);
+    setStatusMultiplayer(false);
     setActiveOp(false);
   }
 
@@ -215,11 +222,19 @@ const STGameEntry: React.FC<STGameEntryProps> = ({ setStatus }) => {
       </p>
       <p>Status:</p>
       <ul>
-        <li>
+      <li>
           <label>
             <input type='checkbox'
               checked={statusPlayed}
               onChange={onGameAddPlayedChange}
+            /> Played
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type='checkbox'
+              checked={statusMultiplayer}
+              onChange={onGameAddMultiplayerChange}
             /> Played
           </label>
         </li>
