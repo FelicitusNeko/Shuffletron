@@ -12,3 +12,8 @@ export interface STGame {
   weight: number;
   status: number;
 }
+
+export interface STShuffleResult {
+  game: STGame;
+  animContent: string[];
+}
