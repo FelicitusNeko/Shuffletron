@@ -748,6 +748,7 @@ func returnShuffleResult(w http.ResponseWriter, r *http.Request) {
 				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
 			}
 		} else {
+			fmt.Printf("Game selected: %s\n", game.Name)
 			json.NewEncoder(w).Encode(ShuffleResult{
 				Game:             game,
 				AnimationContent: animList,
