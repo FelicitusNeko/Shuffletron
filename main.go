@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -627,6 +628,134 @@ func deleteGame(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// -------------=========== SHUFFLE ENDPOINTS
+func returnShuffleResult(w http.ResponseWriter, r *http.Request) {
+	type ShuffleList struct {
+		Id     int64
+		Weight int
+	}
+
+	type ShuffleResult struct {
+		Game             STGame   `json:"game"`
+		AnimationContent []string `json:"animContent"`
+	}
+
+	fmt.Printf("Endpoint hit: returnShuffleResult\n")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		outputApiError(w, fmt.Sprintf("Invalid ID: %q", err), http.StatusBadRequest)
+		return
+	}
+
+	rng := rand.New(rand.NewSource(time.Now().Unix()))
+
+	initStmt := `SELECT gameId, weight FROM games WHERE listId = ? AND status & 1 = 0`
+	animStmt := `SELECT activeDisplayName FROM games WHERE listId = ? AND NOT gameId = ?`
+	resultStmt := `SELECT * FROM games WHERE gameId = ?`
+
+	dbAccessMutex.Lock()
+	defer dbAccessMutex.Unlock()
+
+	// first, retrieve the list of possibilities
+	optionRows, err := db.Query(initStmt, id)
+	if err != nil {
+		fmt.Printf("%q: during query %s\n", err, initStmt)
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
+		return
+	}
+	defer optionRows.Close()
+
+	var options []ShuffleList
+	totalWeight := 0
+
+	for optionRows.Next() {
+		var newOption ShuffleList
+		if err := optionRows.Scan(&newOption.Id, &newOption.Weight); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, initStmt)
+		}
+		options = append(options, newOption)
+		totalWeight += newOption.Weight
+	}
+
+	if err = optionRows.Err(); err != nil {
+		fmt.Printf("%q: after exec %s\n", err, initStmt)
+	}
+
+	// then, pick one out of the list
+	pick := rng.Int() % totalWeight
+	resultId := -1
+	for _, scanOption := range options {
+		pick -= scanOption.Weight
+		if pick < 0 {
+			resultId = int(scanOption.Id)
+			break
+		}
+	}
+
+	if resultId == -1 {
+		outputApiError(w, "No result returned (boggle)", http.StatusInternalServerError)
+	}
+
+	// next, get titles from list for animation
+	animRows, err := db.Query(animStmt, id, resultId)
+	if err != nil {
+		fmt.Printf("%q: during query %s\n", err, animStmt)
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
+		return
+	}
+	defer animRows.Close()
+
+	var animList []string
+
+	for animRows.Next() {
+		var newAnim string
+		if err := animRows.Scan(&newAnim); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, animStmt)
+		}
+		animList = append(animList, newAnim)
+	}
+
+	if err = animRows.Err(); err != nil {
+		fmt.Printf("%q: after exec %s\n", err, animStmt)
+	}
+
+	for len(animList) > 19 {
+		delIndex := rng.Int() % len(animList)
+		var newAnimList []string
+		for x, animItem := range animList {
+			if x != delIndex {
+				newAnimList = append(newAnimList, animItem)
+			}
+		}
+		animList = newAnimList
+	}
+
+	// finally, return the result
+	if resultRow := db.QueryRow(resultStmt, resultId); resultRow.Err() != nil {
+		err := resultRow.Err()
+		fmt.Printf("%q: during query %s\n", err, resultStmt)
+		outputApiError(w, fmt.Sprintf("Error during query: %q", err), http.StatusInternalServerError)
+	} else {
+		var game STGame
+		var activeDisplayName string
+		if err := resultRow.Scan(&game.Id, &game.ListId, &game.Name, &game.DisplayName, &game.Description,
+			&game.Weight, &game.Status, &activeDisplayName); err != nil {
+			fmt.Printf("%q: during exec %s\n", err, resultStmt)
+			if err == sql.ErrNoRows {
+				outputApiError(w, fmt.Sprintf("Game ID not found: %d", id), http.StatusNotFound)
+			} else {
+				outputApiError(w, fmt.Sprintf("Error during exec: %q", err), http.StatusInternalServerError)
+			}
+		} else {
+			json.NewEncoder(w).Encode(ShuffleResult{
+				Game:             game,
+				AnimationContent: animList,
+			})
+		}
+	}
+}
+
 // -------------=========== MAIN CODE
 
 // We'll need to define an Upgrader
@@ -702,6 +831,8 @@ func handleReqs(port int) {
 	router.HandleFunc("/games/{id}", deleteGame).Methods("DELETE")
 	router.HandleFunc("/games/{id}", updateGame).Methods("PUT")
 	router.HandleFunc("/games/{id}", returnSingleGame)
+
+	router.HandleFunc("/shuffle/{id}", returnShuffleResult)
 
 	router.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, err := os.Stat("./build/" + r.URL.Path[1:]); err == nil {
