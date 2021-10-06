@@ -18,16 +18,16 @@ div.shuffletron div.stPanel {
   width: 75%;
   min-width: 500px;
 
-  background-color: #0A7329;
-  border-left: 3px ridge #0FB942;
-  border-right: 3px ridge #0FB942;
+  background-color: #0a7329;
+  border-left: 3px ridge #0fb942;
+  border-right: 3px ridge #0fb942;
   box-shadow: 0px 0px 30px black;
 }
 
 div.shuffletron textarea {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-  'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-  sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
 }
 
 div.shuffletron div.stPanel input,
@@ -45,7 +45,7 @@ div.shuffletron div.stPanel textarea:disabled {
 }
 
 div.shuffletron div.stPanel button {
-  background-color: #0FB942;
+  background-color: #0fb942;
   color: white;
   font-weight: bold;
 }
@@ -54,33 +54,94 @@ div.shuffletron div.stPanel button:disabled {
   background-color: gray;
 }
 
+/* Digital display */
+
 div.shuffletron span.stDigiDisplay {
-  display:inline-block;
+  display: inline-block;
   position: relative;
-  padding: .1em;
-  margin-left: .2em;
+  padding: 0.1em;
+  margin-left: 0.2em;
   border: inset 2px #08531f;
-  background-color: #51270B;
+  background-color: #51270b;
   z-index: 3;
 }
 
 div.shuffletron span.stDigiDisplay span.stDigiForeground {
   position: absolute;
-  top: .1em;
-  left: .1em;
-  color: #DCB9A2;
-  text-shadow: 0px 0px 3px #DD915D;
+  top: 0.1em;
+  left: 0.1em;
+  color: #dcb9a2;
+  text-shadow: 0 0 0.3em #dd915d;
   z-index: 1;
 }
 
-
-
-div.shuffletron span.stDigiDisplay span.stDigiForeground:empty {
-  content: '?';
+div.shuffletron span.stDigiDisplay span.stDigiForeground:empty::before {
+  content: "?";
 }
 
 div.shuffletron span.stDigiDisplay span.stDigiBackground {
-  color: #76360B;
+  color: #76360b;
   user-select: none;
+  text-shadow: 0 0 0.2em rgba(59, 28, 6, 0.5);
+  -webkit-text-stroke: rgba(59, 28, 6, 0.76) 1px;
   z-index: 2;
+}
+
+/* Shuffletron Display */
+
+div.shuffletron div.stDisplay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  margin: 0;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+
+  width: 90%;
+  height: 90%;
+
+  background-color: #0fb942;
+  border: 3px ridge #0fb942;
+  box-shadow: 0px 0px 30px black;
+}
+
+div.shuffletron div.stDisplay div.stDisplayInner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  margin: 0;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+
+  width: calc(100% - 30px);
+  height: calc(100% - 30px);
+
+  background-color: #0a7329;
+  border: 3px inset #0fb942;
+  font-size: 400%;
+}
+
+div.shuffletron div.stDisplay span.stDigiDisplay {
+  margin: 0;
+}
+
+div.shuffletron div.stDisplay div.stTitle {
+  font-family: "Reem Kufi", sans-serif;
+  font-style: italic;
+  text-shadow: 2px 2px 4px #444;
+}
+
+div.shuffletron div.stDisplay select {
+  font-size: inherit;
+  background-color: #51270b;
+  color: #dd915d;
+}
+
+div.shuffletron div.stDisplay button {
+  font-size: inherit;
+  background-color:#0fb942;
+  color: white;
+  font-weight: bold;
 }
