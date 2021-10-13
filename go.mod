@@ -9,5 +9,5 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.12
 	github.com/mattn/go-sqlite3 v1.14.8
-	gorm.io/gorm v1.21.15 // indirect
+	gorm.io/gorm v1.21.16 // indirect
 )
