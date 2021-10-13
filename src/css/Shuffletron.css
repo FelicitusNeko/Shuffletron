@@ -50,7 +50,7 @@ div.shuffletron div.stPanel button {
   font-weight: bold;
 }
 
-div.shuffletron div.stPanel button:disabled {
+div.shuffletron button:disabled {
   background-color: gray;
 }
 
@@ -144,4 +144,21 @@ div.shuffletron div.stDisplay button {
   background-color:#0fb942;
   color: white;
   font-weight: bold;
+}
+
+div.shuffletron div.stDisplay div.stFlex {
+  display: flex;
+  width: 92.5%;
+  margin: auto;
+  flex-flow: row wrap;
+  gap: 20px;
+}
+
+div.shuffletron div.stFlex span.stDigiDisplay,
+div.shuffletron div.stFlex select {
+  flex-basis: 100%;
+}
+
+div.shuffletron div.stFlex button {
+  flex-basis: 33.3%;
 }
