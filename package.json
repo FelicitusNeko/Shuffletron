@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^6.4.5",
-    "@testing-library/react": "^15.0.7",
-    "@testing-library/user-event": "^14.5.2",
     "color-hash": "^2.0.2",
     "font-color-contrast": "^11.1.0",
     "luxon": "^3.4.4",
@@ -21,6 +18,9 @@
   },
   "devDependencies": {
     "@testing-library/dom": "^10.1.0",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^15.0.7",
+    "@testing-library/user-event": "^14.5.2",
     "@types/color-hash": "^1.0.5",
     "@types/jest": "^29.5.12",
     "@types/luxon": "^3.4.2",
