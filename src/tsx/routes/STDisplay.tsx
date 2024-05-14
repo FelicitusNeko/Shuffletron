@@ -107,6 +107,9 @@ const STDisplay: React.FC = () => {
     }
   }
 
+  const onSelectList = ({currentTarget: t}: React.ChangeEvent<HTMLSelectElement>) =>
+    setCurList(parseInt(t.value));
+
   return <div className='shuffletron'>
     <div className='stDisplay'>
       <div className='stDisplayInner'>
@@ -118,9 +121,9 @@ const STDisplay: React.FC = () => {
               error ?? (result
                 ? (result.game.displayName ?? result.game.name)
                 : 'KM-Shuffletron 1000')
-            ).substr(0, 20)}</span>
+            ).substring(0, 20)}</span>
           </span>
-          <select disabled={activeOp} value={curList}>
+          <select disabled={activeOp} onChange={onSelectList} value={curList}>
             <option value='noPick'>Select list</option>
             {listList
               ? listList.map(i => <option key={`shufsel-${i.id}`} value={i.id}>{i.name}</option>)
