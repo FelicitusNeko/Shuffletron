@@ -71,12 +71,12 @@ div.shuffletron span.stDigiDisplay span.stDigiForeground {
   top: 0.1em;
   left: 0.1em;
   color: #dcb9a2;
-  text-shadow: 0 0 0.3em #dd915d;
+  text-shadow: 0 0 0.1em #dd915d;
   z-index: 1;
 }
 
 div.shuffletron span.stDigiDisplay span.stDigiForeground:empty::before {
-  content: "?";
+  content: "???";
 }
 
 div.shuffletron span.stDigiDisplay span.stDigiBackground {
