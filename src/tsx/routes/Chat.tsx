@@ -2,13 +2,13 @@ import React, { ReactNode } from 'react';
 import Sockette from 'sockette';
 import { DateTime } from 'luxon';
 import ColorHash from 'color-hash';
+import { Img } from 'react-image';
+import fontColorContrast from 'font-color-contrast';
 
 import { TwitchWSMsg, TwitchWSMsgEmote, TwitchWSMsgType } from '../interfaces/TwitchWS';
 import '../../css/Chat.css';
 import emotePlaceholder from '../../assets/emote-placeholder.png';
-import ReactImageFallback from 'react-image-fallback';
 
-const fontColorContrast = require('font-color-contrast');
 const colorHash = new ColorHash();
 const { port } = window.location
 
@@ -49,7 +49,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
   </span> : null;
   const chatLineBreak = (chatTime || chatChannel) ? <br /> : null;
 
-  let displayMsg: (ReactNode | string)[] = children ? children.split(/\b/) : [];
+  let displayMsg: ReactNode[] = children ? children.split(/\b/) : [];
   if (emotes) for (const emote of emotes) {
     let emoteCount = 0;
     for (const x in displayMsg) {
@@ -63,11 +63,10 @@ const ChatItem: React.FC<ChatItemProps> = ({
       */
 
       if (displayMsg[x] === emote.name) {
-        displayMsg[x] = <ReactImageFallback
+        displayMsg[x] = <Img
           key={`emote-${time?.toMillis()}-${emote.name}-${++emoteCount}`}
-          fallbackImage={emotePlaceholder}
           className='chatEmote'
-          src={`https://static-cdn.jtvnw.net/emoticons/v2/${emote.id}/default/dark/1.0`}
+          src={[`https://static-cdn.jtvnw.net/emoticons/v2/${emote.id}/default/dark/1.0`, emotePlaceholder]}
           alt={emote.name}
         />
       }
