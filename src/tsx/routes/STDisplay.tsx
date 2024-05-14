@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { STList, STShuffleResult } from '../interfaces/Shuffletron';
+import useSound from 'use-sound';
 
 import '../../css/Shuffletron.css';
+//import sndPick from '../../sounds/Decision1.mp3';
 
 const { port } = window.location;
 
@@ -13,6 +15,9 @@ const STDisplay: React.FC = () => {
   const [shuffleAnim, setShuffleAnim] = useState(0);
   const [activeOp, setActiveOp] = useState(false);
   const [isBlink, setIsBlink] = useState(false);
+
+  const [playPick, {stop: stopPick}] = useSound('/sound/Decision1.mp3');
+  const [playSel] = useSound('/sound/Decision2.mp3');
 
   useEffect(() => {
     fetch(`http://localhost:${port}/lists`)
@@ -34,12 +39,15 @@ const STDisplay: React.FC = () => {
       const sel = Math.floor(Math.random() * result.animContent.length);
       setError(result.animContent[sel]);
       setShuffleAnim(shuffleAnim - 1);
+      playPick();
     }
     if (!result) {
       if (shuffleAnim > 0) setShuffleAnim(0);
     }
     else if (shuffleAnim > 0) setTimeout(DoAnim, 100);
     else {
+      stopPick();
+      playSel();
       setIsBlink(true);
       setActiveOp(false);
       setError(null);
