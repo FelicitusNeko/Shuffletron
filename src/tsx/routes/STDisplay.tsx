@@ -12,6 +12,7 @@ const STDisplay: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [shuffleAnim, setShuffleAnim] = useState(0);
   const [activeOp, setActiveOp] = useState(false);
+  const [isBlink, setIsBlink] = useState(false);
 
   useEffect(() => {
     fetch(`http://localhost:${port}/lists`)
@@ -39,17 +40,20 @@ const STDisplay: React.FC = () => {
     }
     else if (shuffleAnim > 0) setTimeout(DoAnim, 100);
     else {
+      setIsBlink(true);
       setActiveOp(false);
       setError(null);
     }
   }, [shuffleAnim, result]);
 
   const onClear = () => {
+    setIsBlink(false);
     setResult(null);
     setError(null);
   }
 
   const onShuffle = () => {
+    setIsBlink(false);
     if (curList === undefined) {
       console.error('No list selected');
       setError('NO LIST ERR');
@@ -76,6 +80,7 @@ const STDisplay: React.FC = () => {
   }
 
   const onMark = () => {
+    setIsBlink(false);
     if (!result) {
       console.error('No result to mark done');
       setError('NO RESULT ERR');
@@ -107,8 +112,10 @@ const STDisplay: React.FC = () => {
     }
   }
 
-  const onSelectList = ({currentTarget: t}: React.ChangeEvent<HTMLSelectElement>) =>
+  const onSelectList = ({ currentTarget: t }: React.ChangeEvent<HTMLSelectElement>) => {
+    setIsBlink(false);
     setCurList(parseInt(t.value));
+  }
 
   return <div className='shuffletron'>
     <div className='stDisplay'>
@@ -117,7 +124,7 @@ const STDisplay: React.FC = () => {
         <div className='stFlex'>
           <span className='digifont stDigiDisplay'>
             <span className='stDigiBackground'>@@@@@@@@@@@@@@@@@@@@</span>
-            <span className='stDigiForeground'>{(
+            <span className={`stDigiForeground${isBlink ? ' blink_me' : ''}`}>{(
               error ?? (result
                 ? (result.game.displayName ?? result.game.name)
                 : 'KM-Shuffletron 1000')

@@ -162,3 +162,13 @@ div.shuffletron div.stFlex select {
 div.shuffletron div.stFlex button {
   flex-basis: 33.3%;
 }
+
+.blink_me {
+  animation: blinker .05s linear 10;
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
+}
